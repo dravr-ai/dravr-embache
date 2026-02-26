@@ -59,6 +59,9 @@ struct CursorUsage {
 /// Default model for Cursor Agent
 const DEFAULT_MODEL: &str = "sonnet-4";
 
+/// Fallback model list when no runtime override is available
+const FALLBACK_MODELS: &[&str] = &["sonnet-4", "gpt-5", "gemini-2.5-pro"];
+
 /// Cursor Agent CLI runner
 ///
 /// Implements `LlmProvider` by delegating to the `cursor-agent` binary
@@ -67,6 +70,7 @@ const DEFAULT_MODEL: &str = "sonnet-4";
 pub struct CursorAgentRunner {
     config: RunnerConfig,
     default_model: String,
+    available_models: Vec<String>,
     session_ids: Arc<Mutex<HashMap<String, String>>>,
 }
 
@@ -78,9 +82,11 @@ impl CursorAgentRunner {
             .model
             .clone()
             .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        let available_models = FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect();
         Self {
             config,
             default_model,
+            available_models,
             session_ids: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -173,8 +179,8 @@ impl LlmProvider for CursorAgentRunner {
         &self.default_model
     }
 
-    fn available_models(&self) -> &'static [&'static str] {
-        &["sonnet-4", "gpt-5", "gemini-2.5-pro"]
+    fn available_models(&self) -> &[String] {
+        &self.available_models
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {

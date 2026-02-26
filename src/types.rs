@@ -365,7 +365,7 @@ pub trait LlmProvider: Send + Sync {
     fn default_model(&self) -> &str;
 
     /// Available models for this provider
-    fn available_models(&self) -> &'static [&'static str];
+    fn available_models(&self) -> &[String];
 
     /// Perform a chat completion (non-streaming)
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError>;

@@ -24,8 +24,8 @@ use crate::types::{
     StreamChunk, TokenUsage,
 };
 
-/// Available models for the Copilot SDK provider.
-static AVAILABLE_MODELS: &[&str] = &[
+/// Fallback model list when `gh copilot models` discovery fails
+const FALLBACK_MODELS: &[&str] = &[
     "claude-sonnet-4.6",
     "claude-opus-4.6",
     "gpt-5.2-codex",
@@ -37,6 +37,47 @@ static AVAILABLE_MODELS: &[&str] = &[
     "gemini-3-pro-preview",
 ];
 
+/// Discover available Copilot models by running `gh copilot models`.
+///
+/// Uses a blocking subprocess call (safe at construction time before the async
+/// runtime is saturated). Returns `None` if `gh` is not found, the command
+/// fails, or the output cannot be parsed into a non-empty model list.
+fn discover_copilot_models_sync() -> Option<Vec<String>> {
+    let output = std::process::Command::new("gh")
+        .args(["copilot", "models"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        debug!(
+            exit_code = output.status.code().unwrap_or(-1),
+            "gh copilot models failed, falling back to static list"
+        );
+        return None;
+    }
+
+    let stdout = std::str::from_utf8(&output.stdout).ok()?;
+    let models: Vec<String> = stdout
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+
+    if models.is_empty() {
+        debug!("gh copilot models returned empty output, falling back to static list");
+        return None;
+    }
+
+    debug!(
+        count = models.len(),
+        "Discovered available Copilot SDK models via gh copilot models"
+    );
+    Some(models)
+}
+
 /// GitHub Copilot SDK-based LLM provider.
 ///
 /// Communicates with `copilot --headless` via JSON-RPC (stdio or TCP).
@@ -44,24 +85,37 @@ static AVAILABLE_MODELS: &[&str] = &[
 /// maintains a persistent server connection with native tool calling support.
 pub struct CopilotSdkRunner {
     config: CopilotSdkConfig,
+    available_models: Vec<String>,
     client: OnceCell<Arc<Client>>,
 }
 
 impl CopilotSdkRunner {
     /// Create a new provider from environment configuration.
+    ///
+    /// Attempts to discover available models via `gh copilot models`.
+    /// Falls back to a static list if discovery fails.
     #[must_use]
     pub fn from_env() -> Self {
+        let available_models = discover_copilot_models_sync()
+            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
         Self {
             config: CopilotSdkConfig::from_env(),
+            available_models,
             client: OnceCell::new(),
         }
     }
 
     /// Create a new provider with explicit configuration.
+    ///
+    /// Attempts to discover available models via `gh copilot models`.
+    /// Falls back to a static list if discovery fails.
     #[must_use]
     pub fn with_config(config: CopilotSdkConfig) -> Self {
+        let available_models = discover_copilot_models_sync()
+            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
         Self {
             config,
+            available_models,
             client: OnceCell::new(),
         }
     }
@@ -298,8 +352,8 @@ impl LlmProvider for CopilotSdkRunner {
         &self.config.model
     }
 
-    fn available_models(&self) -> &'static [&'static str] {
-        AVAILABLE_MODELS
+    fn available_models(&self) -> &[String] {
+        &self.available_models
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {

@@ -42,6 +42,9 @@ const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 /// Default model for Claude Code
 const DEFAULT_MODEL: &str = "opus";
 
+/// Fallback model list when no runtime override is available
+const FALLBACK_MODELS: &[&str] = &["sonnet", "opus", "haiku"];
+
 /// Claude Code CLI response JSON structure
 #[derive(Debug, Deserialize)]
 struct ClaudeResponse {
@@ -67,6 +70,7 @@ struct ClaudeUsage {
 pub struct ClaudeCodeRunner {
     config: RunnerConfig,
     default_model: String,
+    available_models: Vec<String>,
     session_ids: Arc<Mutex<HashMap<String, String>>>,
 }
 
@@ -78,9 +82,11 @@ impl ClaudeCodeRunner {
             .model
             .clone()
             .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        let available_models = FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect();
         Self {
             config,
             default_model,
+            available_models,
             session_ids: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -188,8 +194,8 @@ impl LlmProvider for ClaudeCodeRunner {
         &self.default_model
     }
 
-    fn available_models(&self) -> &'static [&'static str] {
-        &["sonnet", "opus", "haiku"]
+    fn available_models(&self) -> &[String] {
+        &self.available_models
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {

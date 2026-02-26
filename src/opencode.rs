@@ -53,6 +53,13 @@ struct OpenCodeUsage {
 /// Default model for `OpenCode`
 const DEFAULT_MODEL: &str = "anthropic/claude-sonnet-4";
 
+/// Fallback model list when no runtime override is available
+const FALLBACK_MODELS: &[&str] = &[
+    "anthropic/claude-sonnet-4",
+    "anthropic/claude-opus-4",
+    "openai/gpt-5",
+];
+
 /// `OpenCode` CLI runner
 ///
 /// Implements `LlmProvider` by delegating to the `opencode` binary with
@@ -61,6 +68,7 @@ const DEFAULT_MODEL: &str = "anthropic/claude-sonnet-4";
 pub struct OpenCodeRunner {
     config: RunnerConfig,
     default_model: String,
+    available_models: Vec<String>,
     session_ids: Arc<Mutex<HashMap<String, String>>>,
 }
 
@@ -72,9 +80,11 @@ impl OpenCodeRunner {
             .model
             .clone()
             .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        let available_models = FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect();
         Self {
             config,
             default_model,
+            available_models,
             session_ids: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -164,12 +174,8 @@ impl LlmProvider for OpenCodeRunner {
         &self.default_model
     }
 
-    fn available_models(&self) -> &'static [&'static str] {
-        &[
-            "anthropic/claude-sonnet-4",
-            "anthropic/claude-opus-4",
-            "openai/gpt-5",
-        ]
+    fn available_models(&self) -> &[String] {
+        &self.available_models
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {

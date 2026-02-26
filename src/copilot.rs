@@ -37,6 +37,64 @@ const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 /// Default model for Copilot CLI
 const DEFAULT_MODEL: &str = "claude-opus-4.6";
 
+/// Fallback model list when `gh copilot models` discovery fails
+const FALLBACK_MODELS: &[&str] = &[
+    "claude-sonnet-4.6",
+    "claude-opus-4.6",
+    "claude-opus-4.6-fast",
+    "claude-sonnet-4.5",
+    "claude-haiku-4.5",
+    "claude-sonnet-4",
+    "gpt-5.2-codex",
+    "gpt-5.2",
+    "gpt-5.1-codex",
+    "gpt-5.1",
+    "gpt-5-mini",
+    "gpt-4.1",
+    "gemini-3-pro-preview",
+];
+
+/// Discover available Copilot models by running `gh copilot models`.
+///
+/// Uses a blocking subprocess call (safe at construction time before the async
+/// runtime is saturated). Returns `None` if `gh` is not found, the command
+/// fails, or the output cannot be parsed into a non-empty model list.
+fn discover_copilot_models_sync() -> Option<Vec<String>> {
+    let output = std::process::Command::new("gh")
+        .args(["copilot", "models"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        debug!(
+            exit_code = output.status.code().unwrap_or(-1),
+            "gh copilot models failed, falling back to static list"
+        );
+        return None;
+    }
+
+    let stdout = str::from_utf8(&output.stdout).ok()?;
+    let models: Vec<String> = stdout
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+
+    if models.is_empty() {
+        debug!("gh copilot models returned empty output, falling back to static list");
+        return None;
+    }
+
+    debug!(
+        count = models.len(),
+        "Discovered available Copilot models via gh copilot models"
+    );
+    Some(models)
+}
+
 /// GitHub Copilot CLI runner
 ///
 /// Implements `LlmProvider` by delegating to the `copilot` binary in
@@ -47,19 +105,26 @@ const DEFAULT_MODEL: &str = "claude-opus-4.6";
 pub struct CopilotRunner {
     config: RunnerConfig,
     default_model: String,
+    available_models: Vec<String>,
 }
 
 impl CopilotRunner {
-    /// Create a new Copilot CLI runner with the given configuration
+    /// Create a new Copilot CLI runner with the given configuration.
+    ///
+    /// Attempts to discover available models by running `gh copilot models`.
+    /// Falls back to a static list if discovery fails.
     #[must_use]
     pub fn new(config: RunnerConfig) -> Self {
         let default_model = config
             .model
             .clone()
             .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        let available_models = discover_copilot_models_sync()
+            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
         Self {
             config,
             default_model,
+            available_models,
         }
     }
 
@@ -147,22 +212,8 @@ impl LlmProvider for CopilotRunner {
         &self.default_model
     }
 
-    fn available_models(&self) -> &'static [&'static str] {
-        &[
-            "claude-sonnet-4.6",
-            "claude-opus-4.6",
-            "claude-opus-4.6-fast",
-            "claude-sonnet-4.5",
-            "claude-haiku-4.5",
-            "claude-sonnet-4",
-            "gpt-5.2-codex",
-            "gpt-5.2",
-            "gpt-5.1-codex",
-            "gpt-5.1",
-            "gpt-5-mini",
-            "gpt-4.1",
-            "gemini-3-pro-preview",
-        ]
+    fn available_models(&self) -> &[String] {
+        &self.available_models
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
