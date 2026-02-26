@@ -40,7 +40,7 @@ const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 
 /// Default model for Claude Code
-const DEFAULT_MODEL: &str = "sonnet";
+const DEFAULT_MODEL: &str = "opus";
 
 /// Claude Code CLI response JSON structure
 #[derive(Debug, Deserialize)]

@@ -35,7 +35,7 @@ const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 
 /// Default model for Copilot CLI
-const DEFAULT_MODEL: &str = "claude-sonnet-4.6";
+const DEFAULT_MODEL: &str = "claude-opus-4.6";
 
 /// GitHub Copilot CLI runner
 ///
