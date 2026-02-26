@@ -80,10 +80,13 @@ pub fn apply_sandbox(cmd: &mut Command, policy: &SandboxPolicy) {
 ///
 /// Returns an `io::Error` if neither the provided path nor the
 /// current directory can be resolved.
-pub fn build_policy(working_dir: Option<&Path>) -> io::Result<SandboxPolicy> {
+pub fn build_policy(
+    working_dir: Option<&Path>,
+    allowed_env_keys: &[String],
+) -> io::Result<SandboxPolicy> {
     let dir = match working_dir {
         Some(p) if p.exists() => p.to_path_buf(),
         _ => env::current_dir()?,
     };
-    Ok(SandboxPolicy::new(dir))
+    Ok(SandboxPolicy::new(dir).with_env_keys(allowed_env_keys.to_vec()))
 }

@@ -1,5 +1,5 @@
 // ABOUTME: Shared configuration types for CLI-based LLM runners
-// ABOUTME: Defines runner types, execution modes, and configuration structs
+// ABOUTME: Defines runner types, runner configuration, and environment key parsing
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 dravr.ai
@@ -113,24 +113,19 @@ impl RunnerConfig {
         self
     }
 
+    /// Set the environment variable keys passed through to the subprocess
+    #[must_use]
+    pub fn with_allowed_env_keys(mut self, keys: Vec<String>) -> Self {
+        self.allowed_env_keys = keys;
+        self
+    }
+
     /// Set the working directory for the subprocess
     #[must_use]
     pub fn with_working_directory(mut self, dir: PathBuf) -> Self {
         self.working_directory = Some(dir);
         self
     }
-}
-
-/// Execution mode for the CLI runner
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ExecutionMode {
-    /// Run the CLI binary directly on the host
-    Host,
-    /// Run inside a container using the specified image
-    Container {
-        /// Container image reference (e.g. `ghcr.io/org/runner:latest`)
-        image: String,
-    },
 }
 
 /// Default set of environment variable keys safe to pass through to subprocesses

@@ -34,7 +34,7 @@
 //! ## Modules
 //!
 //! - [`types`] — Core types: `LlmProvider` trait, messages, requests, errors
-//! - [`config`] — Runner types, execution modes, and configuration
+//! - [`config`] — Runner types and configuration
 //! - [`compat`] — Version compatibility and capability detection
 //! - [`container`] — Container-based execution backend
 //! - [`discovery`] — Automatic binary detection on the host
@@ -75,6 +75,8 @@ pub mod process;
 pub mod prompt;
 /// Environment sandboxing and tool policy
 pub mod sandbox;
+/// Stream wrapper for child process lifecycle management
+pub mod stream;
 
 // Copilot SDK modules (behind feature flag)
 /// Configuration for the Copilot SDK provider
@@ -91,7 +93,7 @@ pub mod tool_bridge;
 pub use auth::ProviderReadiness;
 pub use claude_code::ClaudeCodeRunner;
 pub use compat::CliCapabilities;
-pub use config::{CliRunnerType, ExecutionMode, RunnerConfig};
+pub use config::{CliRunnerType, RunnerConfig};
 pub use container::{ContainerConfig, ContainerExecutor, NetworkMode};
 pub use copilot::CopilotRunner;
 pub use cursor_agent::CursorAgentRunner;

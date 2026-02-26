@@ -26,9 +26,10 @@ use tokio_stream::StreamExt;
 use tracing::{debug, warn};
 
 use crate::config::RunnerConfig;
-use crate::process::run_cli_command;
+use crate::process::{read_stderr_capped, run_cli_command};
 use crate::prompt::build_user_prompt;
 use crate::sandbox::{apply_sandbox, build_policy};
+use crate::stream::{GuardedStream, MAX_STREAMING_STDERR_BYTES};
 
 /// Maximum output size for a single Cursor Agent invocation (50 MiB)
 const MAX_OUTPUT_BYTES: usize = 50 * 1024 * 1024;
@@ -116,7 +117,10 @@ impl CursorAgentRunner {
             cmd.arg(arg);
         }
 
-        if let Ok(policy) = build_policy(self.config.working_directory.as_deref()) {
+        if let Ok(policy) = build_policy(
+            self.config.working_directory.as_deref(),
+            &self.config.allowed_env_keys,
+        ) {
             apply_sandbox(&mut cmd, &policy);
         }
 
@@ -240,6 +244,11 @@ impl LlmProvider for CursorAgentRunner {
             RunnerError::internal("Failed to capture cursor-agent stdout for streaming")
         })?;
 
+        let stderr_task = tokio::spawn(read_stderr_capped(
+            child.stderr.take(),
+            MAX_STREAMING_STDERR_BYTES,
+        ));
+
         let reader = BufReader::new(stdout);
         let lines = LinesStream::new(reader.lines());
 
@@ -288,7 +297,7 @@ impl LlmProvider for CursorAgentRunner {
             }
         });
 
-        Ok(Box::pin(stream))
+        Ok(Box::pin(GuardedStream::new(stream, child, stderr_task)))
     }
 
     async fn health_check(&self) -> Result<bool, RunnerError> {

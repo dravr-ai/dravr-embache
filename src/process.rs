@@ -51,7 +51,7 @@ async fn read_stdout_capped(stream: Option<ChildStdout>, limit: usize) -> Vec<u8
 }
 
 /// Read up to `limit` bytes from a `ChildStderr`, returning collected bytes
-async fn read_stderr_capped(stream: Option<ChildStderr>, limit: usize) -> Vec<u8> {
+pub(crate) async fn read_stderr_capped(stream: Option<ChildStderr>, limit: usize) -> Vec<u8> {
     let mut buf = Vec::new();
     if let Some(mut reader) = stream {
         let mut tmp = [0u8; 8192];
