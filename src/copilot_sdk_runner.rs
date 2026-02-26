@@ -17,6 +17,8 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 
 use crate::copilot_sdk_config::CopilotSdkConfig;
+use std::any::Any;
+
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, MessageRole, RunnerError,
     StreamChunk, TokenUsage,
@@ -287,7 +289,9 @@ impl LlmProvider for CopilotSdkRunner {
     }
 
     fn capabilities(&self) -> LlmCapabilities {
-        LlmCapabilities::STREAMING | LlmCapabilities::SYSTEM_MESSAGES
+        LlmCapabilities::STREAMING
+            | LlmCapabilities::SYSTEM_MESSAGES
+            | LlmCapabilities::SDK_TOOL_CALLING
     }
 
     fn default_model(&self) -> &str {
@@ -424,6 +428,10 @@ impl LlmProvider for CopilotSdkRunner {
                 Ok(false)
             }
         }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

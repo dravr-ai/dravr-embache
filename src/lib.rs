@@ -105,3 +105,7 @@ pub use copilot_sdk_config::CopilotSdkConfig;
 pub use copilot_sdk_runner::{CopilotSdkRunner, SdkToolResponse};
 #[cfg(feature = "copilot-sdk")]
 pub use tool_bridge::{convert_function_declarations, extract_declarations_from_tool_value};
+
+// Re-export copilot-sdk types so consumers don't need a direct dependency
+#[cfg(feature = "copilot-sdk")]
+pub use copilot_sdk::{Tool as SdkTool, ToolHandler, ToolResultObject};

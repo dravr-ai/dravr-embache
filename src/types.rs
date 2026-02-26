@@ -10,6 +10,7 @@
 //! These types mirror the LLM provider contract without requiring
 //! any external platform dependency.
 
+use std::any::Any;
 use std::fmt;
 use std::pin::Pin;
 
@@ -116,6 +117,8 @@ bitflags::bitflags! {
         const JSON_MODE = 0b0000_1000;
         /// Provider supports system messages
         const SYSTEM_MESSAGES = 0b0001_0000;
+        /// Provider supports SDK-managed tool calling (tool loop handled by SDK, not by caller)
+        const SDK_TOOL_CALLING = 0b0010_0000;
     }
 }
 
@@ -164,6 +167,12 @@ impl LlmCapabilities {
     #[must_use]
     pub const fn supports_system_messages(&self) -> bool {
         self.contains(Self::SYSTEM_MESSAGES)
+    }
+
+    /// Check if SDK-managed tool calling is supported
+    #[must_use]
+    pub const fn supports_sdk_tool_calling(&self) -> bool {
+        self.contains(Self::SDK_TOOL_CALLING)
     }
 }
 
@@ -369,4 +378,7 @@ pub trait LlmProvider: Send + Sync {
 
     /// Check if the provider is healthy and ready to serve requests
     async fn health_check(&self) -> Result<bool, RunnerError>;
+
+    /// Downcast to a concrete type for provider-specific operations
+    fn as_any(&self) -> &dyn Any;
 }

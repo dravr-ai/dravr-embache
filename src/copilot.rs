@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
+use std::any::Any;
 use std::io;
 use std::process::Stdio;
 use std::str;
@@ -233,5 +234,9 @@ impl LlmProvider for CopilotRunner {
             );
             Ok(false)
         }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

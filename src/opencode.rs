@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::str;
 use std::sync::Arc;
@@ -223,5 +224,9 @@ impl LlmProvider for OpenCodeRunner {
             warn!(exit_code = output.exit_code, "OpenCode health check failed");
             Ok(false)
         }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
