@@ -1,20 +1,28 @@
-# Embache — CLI LLM Runners
+# Embache — LLM Runners
 
 [![CI](https://github.com/dravr-ai/dravr-embache/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embache/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE.md)
 
-Standalone Rust library that wraps AI CLI tools as pluggable LLM providers via subprocess execution.
+Standalone Rust library that wraps AI CLI tools and SDKs as pluggable LLM providers.
 
-Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embache** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free.
+Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embache** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional SDK mode maintains a persistent JSON-RPC connection for native tool calling.
 
-## Supported CLI Runners
+## Supported Runners
 
-| Runner | Binary | Status | Features |
-|--------|--------|--------|----------|
-| Claude Code | `claude` | ✅ Production | JSON output, streaming, system prompts, session resume |
-| GitHub Copilot | `copilot` | ✅ Production | Text parsing, streaming |
-| Cursor Agent | `cursor-agent` | ✅ Production | JSON output, streaming, MCP approval |
-| OpenCode | `opencode` | ✅ Production | JSON events, session management |
+### CLI Runners (subprocess-based)
+
+| Runner | Binary | Features |
+|--------|--------|----------|
+| Claude Code | `claude` | JSON output, streaming, system prompts, session resume |
+| GitHub Copilot | `copilot` | Text parsing, streaming |
+| Cursor Agent | `cursor-agent` | JSON output, streaming, MCP approval |
+| OpenCode | `opencode` | JSON events, session management |
+
+### SDK Runners (persistent connection)
+
+| Runner | Feature Flag | Features |
+|--------|-------------|----------|
+| GitHub Copilot SDK | `copilot-sdk` | Persistent JSON-RPC via `copilot --headless`, native tool calling, streaming |
 
 ## Quick Start
 
@@ -22,10 +30,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embache = "0.1"
+embache = { git = "https://github.com/dravr-ai/dravr-embache.git", branch = "main" }
 ```
 
-Use a runner:
+Use a CLI runner:
 
 ```rust
 use std::path::PathBuf;
@@ -47,21 +55,66 @@ async fn main() -> Result<(), embache::types::RunnerError> {
 }
 ```
 
+### Copilot SDK (feature flag)
+
+Enable the `copilot-sdk` feature for persistent JSON-RPC instead of per-request subprocesses:
+
+```toml
+[dependencies]
+embache = { git = "https://github.com/dravr-ai/dravr-embache.git", branch = "main", features = ["copilot-sdk"] }
+```
+
+```rust
+use embache::{CopilotSdkRunner, CopilotSdkConfig};
+use embache::types::{ChatMessage, ChatRequest, LlmProvider};
+
+#[tokio::main]
+async fn main() -> Result<(), embache::types::RunnerError> {
+    // Reads COPILOT_SDK_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
+    let runner = CopilotSdkRunner::from_env();
+
+    let request = ChatRequest::new(vec![
+        ChatMessage::user("Explain Rust ownership"),
+    ]);
+
+    let response = runner.complete(&request).await?;
+    println!("{}", response.content);
+    Ok(())
+}
+```
+
+The SDK runner starts `copilot --headless` once and reuses the connection across requests. Configuration via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COPILOT_CLI_PATH` | auto-detect | Override path to copilot binary |
+| `COPILOT_SDK_MODEL` | `claude-sonnet-4.6` | Default model for completions |
+| `COPILOT_SDK_TRANSPORT` | `stdio` | Transport mode: `stdio` or `tcp` |
+| `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
+
 ## Architecture
 
 ```
 Your Application
     └── embache (this library)
-            ├── ClaudeCodeRunner    → spawns `claude -p "prompt" --output-format json`
-            ├── CopilotRunner       → spawns `copilot -p "prompt"`
-            ├── CursorAgentRunner   → spawns `cursor-agent -p "prompt" --output-format json`
-            └── OpenCodeRunner      → spawns `opencode run "prompt" --format json`
+            │
+            ├── CLI Runners (subprocess per request)
+            │   ├── ClaudeCodeRunner    → spawns `claude -p "prompt" --output-format json`
+            │   ├── CopilotRunner       → spawns `copilot -p "prompt"`
+            │   ├── CursorAgentRunner   → spawns `cursor-agent -p "prompt" --output-format json`
+            │   └── OpenCodeRunner      → spawns `opencode run "prompt" --format json`
+            │
+            └── SDK Runners (persistent connection, behind feature flag)
+                └── CopilotSdkRunner    → JSON-RPC to `copilot --headless`
 ```
 
-Each runner implements the `LlmProvider` trait with:
+All runners implement the same `LlmProvider` trait:
 - **`complete()`** — single-shot completion
 - **`complete_stream()`** — streaming completion
-- **`health_check()`** — verify CLI is installed and authenticated
+- **`health_check()`** — verify the runner is available and authenticated
+
+The `CopilotSdkRunner` additionally provides:
+- **`execute_with_tools()`** — native tool calling via the SDK's session and tool handler infrastructure
 
 ## Features
 
@@ -71,20 +124,24 @@ Each runner implements the `LlmProvider` trait with:
 - **Capability detection** — probes CLI version and supported features
 - **Container isolation** — optional container-based execution for production
 - **Subprocess safety** — timeout, output limits, environment sandboxing
+- **Feature flags** — SDK integrations are opt-in to keep the default dependency footprint minimal
 
 ## Modules
 
-| Module | Purpose |
-|--------|---------|
-| `types` | Core types: `LlmProvider` trait, `ChatRequest`, `ChatResponse`, `RunnerError` |
-| `config` | Runner types, execution modes, configuration |
-| `discovery` | Auto-detect installed CLI binaries |
-| `auth` | Readiness checking (is the CLI authenticated?) |
-| `compat` | Version compatibility and capability detection |
-| `process` | Subprocess spawning with timeout and output limits |
-| `sandbox` | Environment variable whitelisting, working directory control |
-| `container` | Container-based execution backend |
-| `prompt` | Prompt building from chat messages |
+| Module | Feature | Purpose |
+|--------|---------|---------|
+| `types` | default | Core types: `LlmProvider` trait, `ChatRequest`, `ChatResponse`, `RunnerError` |
+| `config` | default | Runner types, execution modes, configuration |
+| `discovery` | default | Auto-detect installed CLI binaries |
+| `auth` | default | Readiness checking (is the CLI authenticated?) |
+| `compat` | default | Version compatibility and capability detection |
+| `process` | default | Subprocess spawning with timeout and output limits |
+| `sandbox` | default | Environment variable whitelisting, working directory control |
+| `container` | default | Container-based execution backend |
+| `prompt` | default | Prompt building from chat messages |
+| `copilot_sdk_runner` | `copilot-sdk` | Copilot SDK runner (persistent JSON-RPC) |
+| `copilot_sdk_config` | `copilot-sdk` | Copilot SDK configuration from environment |
+| `tool_bridge` | `copilot-sdk` | Tool definition conversion for native tool calling |
 
 ## License
 
