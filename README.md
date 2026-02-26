@@ -28,12 +28,13 @@ embache = "0.1"
 Use a runner:
 
 ```rust
+use std::path::PathBuf;
 use embache::{ClaudeCodeRunner, RunnerConfig};
 use embache::types::{ChatMessage, ChatRequest, LlmProvider};
 
 #[tokio::main]
 async fn main() -> Result<(), embache::types::RunnerError> {
-    let config = RunnerConfig::claude_code();
+    let config = RunnerConfig::new(PathBuf::from("claude"));
     let runner = ClaudeCodeRunner::new(config);
 
     let request = ChatRequest::new(vec![
