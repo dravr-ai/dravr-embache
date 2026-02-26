@@ -1,17 +1,18 @@
-// ABOUTME: Standalone CLI-based LLM runner library wrapping AI CLI tools as providers
-// ABOUTME: Re-exports runners for Claude Code, Copilot, Cursor Agent, and OpenCode CLIs
+// ABOUTME: Standalone LLM runner library wrapping AI CLI tools and SDKs as providers
+// ABOUTME: Re-exports runners for Claude Code, Copilot, Cursor Agent, OpenCode, and Copilot SDK
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
-//! # Embache — CLI LLM Runners
+//! # Embache — LLM Runners
 //!
 //! Standalone library providing pluggable [`LlmProvider`](types::LlmProvider)
 //! implementations that delegate to CLI tools (Claude Code, Copilot, Cursor Agent,
-//! `OpenCode`) via subprocess execution.
+//! `OpenCode`) and SDKs (Copilot SDK) for LLM completions.
 //!
-//! Each runner wraps a CLI binary, builds prompts from [`ChatMessage`](types::ChatMessage)
-//! sequences, parses JSON output, and manages session continuity.
+//! CLI runners wrap a binary, build prompts from [`ChatMessage`](types::ChatMessage)
+//! sequences, parse JSON output, and manage session continuity. The Copilot SDK
+//! runner maintains a persistent `copilot --headless` server via JSON-RPC.
 //!
 //! ## Quick Start
 //!
@@ -45,6 +46,7 @@
 //! - [`copilot`] — GitHub Copilot CLI runner
 //! - [`cursor_agent`] — Cursor Agent CLI runner
 //! - [`opencode`] — `OpenCode` CLI runner
+//! - [`copilot_sdk_runner`] — GitHub Copilot SDK runner (requires `copilot-sdk` feature)
 
 /// Core types: traits, messages, requests, responses, and errors
 pub mod types;
@@ -74,6 +76,17 @@ pub mod prompt;
 /// Environment sandboxing and tool policy
 pub mod sandbox;
 
+// Copilot SDK modules (behind feature flag)
+/// Configuration for the Copilot SDK provider
+#[cfg(feature = "copilot-sdk")]
+pub mod copilot_sdk_config;
+/// GitHub Copilot SDK runner (persistent JSON-RPC server)
+#[cfg(feature = "copilot-sdk")]
+pub mod copilot_sdk_runner;
+/// Tool definition conversion for Copilot SDK native tool calling
+#[cfg(feature = "copilot-sdk")]
+pub mod tool_bridge;
+
 // Re-export the runner structs for ergonomic access
 pub use auth::ProviderReadiness;
 pub use claude_code::ClaudeCodeRunner;
@@ -84,3 +97,11 @@ pub use copilot::CopilotRunner;
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
 pub use opencode::OpenCodeRunner;
+
+// Copilot SDK re-exports (behind feature flag)
+#[cfg(feature = "copilot-sdk")]
+pub use copilot_sdk_config::CopilotSdkConfig;
+#[cfg(feature = "copilot-sdk")]
+pub use copilot_sdk_runner::{CopilotSdkRunner, SdkToolResponse};
+#[cfg(feature = "copilot-sdk")]
+pub use tool_bridge::{convert_function_declarations, extract_declarations_from_tool_value};

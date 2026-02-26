@@ -1,18 +1,23 @@
-# ABOUTME: Standalone CLI LLM runners library for subprocess-based LLM provider integration
-# ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) as LLM providers
+# ABOUTME: Standalone LLM runner library wrapping AI CLI tools and SDKs as pluggable providers
+# ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) and SDKs (Copilot SDK)
 
 [package]
 name = "embache"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-description = "CLI-based LLM runner library — wraps AI CLI tools as pluggable LLM providers via subprocess execution"
+description = "LLM runner library — wraps AI CLI tools and SDKs as pluggable LLM providers"
 repository = "https://github.com/dravr-ai/dravr-embache"
 homepage = "https://github.com/dravr-ai/dravr-embache"
 documentation = "https://docs.rs/embache"
 keywords = ["llm", "cli", "ai", "claude", "copilot"]
 categories = ["command-line-utilities", "api-bindings"]
 readme = "README.md"
+
+[features]
+default = []
+# Enable Copilot SDK provider (persistent JSON-RPC server via copilot --headless)
+copilot-sdk = ["dep:copilot-sdk", "tokio/sync", "tokio-stream/sync"]
 
 [dependencies]
 async-trait = "0.1"
@@ -25,8 +30,12 @@ tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
 which = "7"
 
+# Optional: Copilot SDK (persistent JSON-RPC communication with copilot --headless)
+copilot-sdk = { version = "0.1.17", git = "https://github.com/copilot-community-sdk/copilot-sdk-rust.git", rev = "109f234b", optional = true }
+
 [dev-dependencies]
 tokio = { version = "1.45", features = ["full", "test-util"] }
+serde_json = "1.0"
 
 [[example]]
 name = "test_claude_e2e"
