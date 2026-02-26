@@ -1,0 +1,30 @@
+# Build artifacts
+/target/
+debug/
+release/
+
+# Cargo lock is committed for libraries? No — this is a library crate.
+# Actually, Rust docs recommend committing Cargo.lock for end-user applications
+# but not for libraries. Since this can be both, we commit it.
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Environment
+.envrc
+.env
+.env.*
+
+# Lock files from wrong package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

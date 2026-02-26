@@ -1,0 +1,49 @@
+# ABOUTME: Standalone CLI LLM runners library for subprocess-based LLM provider integration
+# ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) as LLM providers
+
+[package]
+name = "embache"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "CLI-based LLM runner library — wraps AI CLI tools as pluggable LLM providers via subprocess execution"
+repository = "https://github.com/dravr-ai/dravr-embache"
+homepage = "https://github.com/dravr-ai/dravr-embache"
+documentation = "https://docs.rs/embache"
+keywords = ["llm", "cli", "ai", "claude", "copilot"]
+categories = ["command-line-utilities", "api-bindings"]
+readme = "README.md"
+
+[dependencies]
+async-trait = "0.1"
+bitflags = { version = "2", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3"
+tokio = { version = "1.45", features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros", "fs"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
+tracing = "0.1"
+which = "7"
+
+[dev-dependencies]
+tokio = { version = "1.45", features = ["full", "test-util"] }
+
+[[example]]
+name = "test_claude_e2e"
+path = "examples/test_claude_e2e.rs"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Allow these clippy lints project-wide
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+redundant_pub_crate = "allow"
+multiple_crate_versions = "allow"

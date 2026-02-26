@@ -1,0 +1,89 @@
+// ABOUTME: Environment sandboxing and tool policy for CLI subprocesses
+// ABOUTME: Clears environment, whitelists keys, and sets working directory
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 dravr.ai
+
+use std::env;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use tokio::process::Command;
+use tracing::debug;
+
+use crate::config::default_allowed_env_keys;
+
+/// Policy controlling the subprocess execution environment
+#[derive(Debug, Clone)]
+pub struct SandboxPolicy {
+    /// Environment variable keys to pass through from the host
+    pub allowed_env_keys: Vec<String>,
+    /// Working directory for the subprocess
+    pub working_directory: PathBuf,
+    /// CLI tool names the runner is permitted to invoke
+    pub allowed_tools: Vec<String>,
+}
+
+impl SandboxPolicy {
+    /// Create a policy with defaults (standard env keys, current directory)
+    #[must_use]
+    pub fn new(working_directory: PathBuf) -> Self {
+        Self {
+            allowed_env_keys: default_allowed_env_keys(),
+            working_directory,
+            allowed_tools: Vec::new(),
+        }
+    }
+
+    /// Create a policy with custom allowed environment keys
+    #[must_use]
+    pub fn with_env_keys(mut self, keys: Vec<String>) -> Self {
+        self.allowed_env_keys = keys;
+        self
+    }
+
+    /// Set the list of allowed tools
+    #[must_use]
+    pub fn with_allowed_tools(mut self, tools: Vec<String>) -> Self {
+        self.allowed_tools = tools;
+        self
+    }
+}
+
+/// Apply sandbox policy to a command before execution
+///
+/// This clears the subprocess environment, then re-injects only the
+/// allowed keys from the host environment. The working directory is
+/// also set according to the policy.
+pub fn apply_sandbox(cmd: &mut Command, policy: &SandboxPolicy) {
+    cmd.env_clear();
+
+    for key in &policy.allowed_env_keys {
+        if let Ok(value) = env::var(key) {
+            cmd.env(key, &value);
+        }
+    }
+
+    cmd.current_dir(&policy.working_directory);
+
+    debug!(
+        cwd = %policy.working_directory.display(),
+        env_keys = policy.allowed_env_keys.len(),
+        "Applied sandbox policy"
+    );
+}
+
+/// Build a `SandboxPolicy` from a working directory path, falling back to
+/// the current directory if the provided path does not exist.
+///
+/// # Errors
+///
+/// Returns an `io::Error` if neither the provided path nor the
+/// current directory can be resolved.
+pub fn build_policy(working_dir: Option<&Path>) -> io::Result<SandboxPolicy> {
+    let dir = match working_dir {
+        Some(p) if p.exists() => p.to_path_buf(),
+        _ => env::current_dir()?,
+    };
+    Ok(SandboxPolicy::new(dir))
+}
