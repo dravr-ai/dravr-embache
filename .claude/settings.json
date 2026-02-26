@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git config core.hooksPath .githooks"
+          },
+          {
+            "type": "command",
+            "command": "echo '✅ embache workspace ready - git hooks configured'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1 && echo \"CI_MONITORING=gh\" || echo \"CI_MONITORING=fallback\"'"
+          }
+        ]
+      }
+    ]
+  }
+}
