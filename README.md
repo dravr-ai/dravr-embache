@@ -104,8 +104,11 @@ Your Application
             │   ├── CursorAgentRunner   → spawns `cursor-agent -p "prompt" --output-format json`
             │   └── OpenCodeRunner      → spawns `opencode run "prompt" --format json`
             │
-            └── SDK Runners (persistent connection, behind feature flag)
-                └── CopilotSdkRunner    → JSON-RPC to `copilot --headless`
+            ├── SDK Runners (persistent connection, behind feature flag)
+            │   └── CopilotSdkRunner    → JSON-RPC to `copilot --headless`
+            │
+            └── Tool Simulation (text-based tool calling for CLI runners)
+                └── execute_with_text_tools()  → catalog injection, XML parsing, tool loop
 ```
 
 All runners implement the same `LlmProvider` trait:
@@ -115,6 +118,57 @@ All runners implement the same `LlmProvider` trait:
 
 The `CopilotSdkRunner` additionally provides:
 - **`execute_with_tools()`** — native tool calling via the SDK's session and tool handler infrastructure
+
+### Text-Based Tool Calling (CLI runners)
+
+CLI runners don't have native tool calling, so Embacle provides a text-based simulation layer. It injects a tool catalog into the system prompt and parses `<tool_call>` XML blocks from the LLM response, looping until the model stops calling tools.
+
+```rust
+use embacle::tool_simulation::{
+    FunctionDeclaration, FunctionCall, FunctionResponse,
+    execute_with_text_tools,
+};
+use embacle::types::{ChatMessage, LlmProvider};
+use std::sync::Arc;
+use serde_json::json;
+
+let declarations = vec![
+    FunctionDeclaration {
+        name: "get_weather".into(),
+        description: "Get current weather for a city".into(),
+        parameters: Some(json!({"type": "object", "properties": {"city": {"type": "string"}}})),
+    },
+];
+
+let handler = Arc::new(|name: &str, args: &serde_json::Value| -> FunctionResponse {
+    FunctionResponse {
+        name: name.to_owned(),
+        response: json!({"temperature": 22, "conditions": "sunny"}),
+    }
+});
+
+let mut messages = vec![ChatMessage::user("What's the weather in Paris?")];
+let result = execute_with_text_tools(
+    &runner,          // any LlmProvider (CopilotRunner, ClaudeCodeRunner, etc.)
+    &mut messages,
+    &declarations,
+    handler,
+    5,                // max iterations
+).await?;
+
+println!("{}", result.content);           // final response with tools stripped
+println!("Tool calls: {}", result.tool_calls_count);
+```
+
+The pure functions are also available individually for custom loop implementations:
+
+| Function | Purpose |
+|----------|---------|
+| `generate_tool_catalog()` | Converts declarations into a markdown catalog |
+| `inject_tool_catalog()` | Appends catalog to the system message |
+| `parse_tool_call_blocks()` | Parses `<tool_call>` XML blocks from response text |
+| `strip_tool_call_blocks()` | Returns clean text with tool blocks removed |
+| `format_tool_results_as_text()` | Formats results as `<tool_result>` XML blocks |
 
 ## Features
 
@@ -139,6 +193,7 @@ The `CopilotSdkRunner` additionally provides:
 | `sandbox` | default | Environment variable whitelisting, working directory control |
 | `container` | default | Container-based execution backend |
 | `prompt` | default | Prompt building from chat messages |
+| `tool_simulation` | default | Text-based tool calling for CLI runners (`<tool_call>` XML protocol) |
 | `copilot_sdk_runner` | `copilot-sdk` | Copilot SDK runner (persistent JSON-RPC) |
 | `copilot_sdk_config` | `copilot-sdk` | Copilot SDK configuration from environment |
 | `tool_bridge` | `copilot-sdk` | Tool definition conversion for native tool calling |
