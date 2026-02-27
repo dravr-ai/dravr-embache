@@ -77,6 +77,8 @@ pub mod prompt;
 pub mod sandbox;
 /// Stream wrapper for child process lifecycle management
 pub mod stream;
+/// Text-based tool simulation for CLI runners without native function calling
+pub mod tool_simulation;
 
 // Copilot SDK modules (behind feature flag)
 /// Configuration for the Copilot SDK provider
@@ -99,6 +101,13 @@ pub use copilot::CopilotRunner;
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
 pub use opencode::OpenCodeRunner;
+
+// Tool simulation re-exports
+pub use tool_simulation::{
+    execute_with_text_tools, format_tool_results_as_text, generate_tool_catalog,
+    inject_tool_catalog, parse_tool_call_blocks, strip_tool_call_blocks, FunctionCall,
+    FunctionDeclaration, FunctionResponse, TextToolHandler, TextToolResponse,
+};
 
 // Copilot SDK re-exports (behind feature flag)
 #[cfg(feature = "copilot-sdk")]
