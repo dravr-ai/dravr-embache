@@ -298,3 +298,163 @@ fn shell_escape(arg: &str) -> String {
     // Replace single quotes with '\'' (end quote, escaped quote, start quote)
     format!("'{}'", arg.replace('\'', "'\\''"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base_config() -> ContainerConfig {
+        ContainerConfig {
+            image: "ghcr.io/test/runner:latest".to_owned(),
+            memory_limit: None,
+            pids_limit: None,
+            network_mode: NetworkMode::None,
+            extra_mounts: Vec::new(),
+            env_vars: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_docker_args_security_hardening() {
+        let config = base_config();
+        let args = build_docker_args(
+            &config,
+            Path::new("/tmp/scratch"),
+            "claude",
+            &["-p", "hi"],
+            None,
+        );
+
+        assert!(args.contains(&"--rm".to_owned()));
+        assert!(args.contains(&"--read-only".to_owned()));
+        assert!(args.contains(&"--cap-drop=ALL".to_owned()));
+        assert!(args.contains(&"--security-opt=no-new-privileges".to_owned()));
+    }
+
+    #[test]
+    fn test_docker_args_memory_and_pids_limits() {
+        let mut config = base_config();
+        config.memory_limit = Some("512m".to_owned());
+        config.pids_limit = Some(100);
+
+        let args = build_docker_args(&config, Path::new("/tmp/scratch"), "claude", &[], None);
+
+        assert!(args.contains(&"--memory=512m".to_owned()));
+        assert!(args.contains(&"--pids-limit=100".to_owned()));
+    }
+
+    #[test]
+    fn test_docker_args_network_modes() {
+        let mut config = base_config();
+
+        config.network_mode = NetworkMode::None;
+        let args = build_docker_args(&config, Path::new("/tmp/s"), "claude", &[], None);
+        assert!(args.contains(&"--network=none".to_owned()));
+
+        config.network_mode = NetworkMode::Host;
+        let args = build_docker_args(&config, Path::new("/tmp/s"), "claude", &[], None);
+        assert!(args.contains(&"--network=host".to_owned()));
+
+        config.network_mode = NetworkMode::Custom("my-net".to_owned());
+        let args = build_docker_args(&config, Path::new("/tmp/s"), "claude", &[], None);
+        assert!(args.contains(&"--network=my-net".to_owned()));
+    }
+
+    #[test]
+    fn test_docker_args_extra_mounts() {
+        let mut config = base_config();
+        config.extra_mounts = vec![
+            Mount {
+                source: PathBuf::from("/host/data"),
+                target: PathBuf::from("/container/data"),
+                read_only: true,
+            },
+            Mount {
+                source: PathBuf::from("/host/work"),
+                target: PathBuf::from("/container/work"),
+                read_only: false,
+            },
+        ];
+
+        let args = build_docker_args(&config, Path::new("/tmp/scratch"), "claude", &[], None);
+
+        assert!(args.contains(&"/host/data:/container/data:ro".to_owned()));
+        assert!(args.contains(&"/host/work:/container/work".to_owned()));
+    }
+
+    #[test]
+    fn test_docker_args_env_vars() {
+        let mut config = base_config();
+        config.env_vars = vec![("API_KEY".to_owned(), "secret123".to_owned())];
+
+        let args = build_docker_args(&config, Path::new("/tmp/scratch"), "claude", &[], None);
+
+        assert!(args.contains(&"-e".to_owned()));
+        assert!(args.contains(&"API_KEY=secret123".to_owned()));
+    }
+
+    #[test]
+    fn test_docker_args_with_stdin_redirect() {
+        let config = base_config();
+        let args = build_docker_args(
+            &config,
+            Path::new("/tmp/scratch"),
+            "claude",
+            &["-p", "hello"],
+            Some("/scratch/stdin.txt"),
+        );
+
+        assert!(args.contains(&"-i".to_owned()));
+        assert!(args.contains(&"sh".to_owned()));
+        assert!(args.contains(&"-c".to_owned()));
+        // The last arg should be the shell command with stdin redirect
+        let last = args.last().unwrap();
+        assert!(last.contains("< /scratch/stdin.txt"));
+        assert!(last.contains("claude"));
+    }
+
+    #[test]
+    fn test_docker_args_without_stdin() {
+        let config = base_config();
+        let args = build_docker_args(
+            &config,
+            Path::new("/tmp/scratch"),
+            "claude",
+            &["-p", "hello"],
+            None,
+        );
+
+        // Should end with: image, binary, args
+        assert!(args.contains(&"ghcr.io/test/runner:latest".to_owned()));
+        assert!(args.contains(&"claude".to_owned()));
+        assert!(args.contains(&"-p".to_owned()));
+        assert!(args.contains(&"hello".to_owned()));
+        // Should NOT contain shell redirect markers
+        assert!(!args.contains(&"sh".to_owned()));
+    }
+
+    #[test]
+    fn test_shell_escape_empty() {
+        assert_eq!(shell_escape(""), "''");
+    }
+
+    #[test]
+    fn test_shell_escape_simple() {
+        assert_eq!(shell_escape("hello"), "'hello'");
+    }
+
+    #[test]
+    fn test_shell_escape_single_quotes() {
+        assert_eq!(shell_escape("it's"), "'it'\\''s'");
+    }
+
+    #[test]
+    fn test_network_mode_display() {
+        assert_eq!(format!("{}", NetworkMode::None), "none");
+        assert_eq!(format!("{}", NetworkMode::Host), "host");
+        assert_eq!(
+            format!("{}", NetworkMode::Custom("my-net".to_owned())),
+            "my-net"
+        );
+    }
+}

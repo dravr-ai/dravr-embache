@@ -99,11 +99,15 @@ impl ClaudeCodeRunner {
     }
 
     /// Build the base command with common arguments
+    ///
+    /// When `max_tokens` is `Some`, the `CLAUDE_CODE_MAX_OUTPUT_TOKENS` env var
+    /// is injected after sandbox application so the CLI limits its output length.
     fn build_command(
         &self,
         prompt: &str,
         system_prompt: Option<&str>,
         output_format: &str,
+        max_tokens: Option<u32>,
     ) -> Command {
         let mut cmd = Command::new(&self.config.binary_path);
         cmd.args(["-p", prompt, "--output-format", output_format]);
@@ -137,6 +141,11 @@ impl ClaudeCodeRunner {
             &self.config.allowed_env_keys,
         ) {
             apply_sandbox(&mut cmd, &policy);
+        }
+
+        // Inject max output tokens after sandbox (env_clear) so the value persists
+        if let Some(tokens) = max_tokens {
+            cmd.env("CLAUDE_CODE_MAX_OUTPUT_TOKENS", tokens.to_string());
         }
 
         cmd
@@ -206,7 +215,7 @@ impl LlmProvider for ClaudeCodeRunner {
         let system = extract_system_message(&request.messages);
         let prompt = build_user_prompt(&request.messages);
 
-        let mut cmd = self.build_command(&prompt, system, "json");
+        let mut cmd = self.build_command(&prompt, system, "json", request.max_tokens);
 
         if let Some(model) = &request.model {
             let sessions = self.session_ids.lock().await;
@@ -240,7 +249,7 @@ impl LlmProvider for ClaudeCodeRunner {
         let system = extract_system_message(&request.messages);
         let prompt = build_user_prompt(&request.messages);
 
-        let mut cmd = self.build_command(&prompt, system, "stream-json");
+        let mut cmd = self.build_command(&prompt, system, "stream-json", request.max_tokens);
 
         if let Some(model) = &request.model {
             let sessions = self.session_ids.lock().await;
@@ -346,5 +355,57 @@ impl LlmProvider for ClaudeCodeRunner {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_response_valid_json() {
+        let json = br#"{"result":"Hello world","is_error":false,"session_id":"abc123","usage":{"input_tokens":10,"output_tokens":5}}"#;
+        let (response, session_id) = ClaudeCodeRunner::parse_response(json).unwrap();
+
+        assert_eq!(response.content, "Hello world");
+        assert_eq!(session_id, Some("abc123".to_owned()));
+        assert_eq!(response.model, "claude-code");
+        let usage = response.usage.unwrap();
+        assert_eq!(usage.prompt_tokens, 10);
+        assert_eq!(usage.completion_tokens, 5);
+        assert_eq!(usage.total_tokens, 15);
+    }
+
+    #[test]
+    fn test_parse_response_error_flag() {
+        let json = br#"{"result":"rate limited","is_error":true}"#;
+        let err = ClaudeCodeRunner::parse_response(json).unwrap_err();
+
+        assert_eq!(err.kind, crate::types::ErrorKind::ExternalService);
+        assert!(err.message.contains("rate limited"));
+    }
+
+    #[test]
+    fn test_parse_response_missing_optional_fields() {
+        let json = br#"{"result":"hi","is_error":false}"#;
+        let (response, session_id) = ClaudeCodeRunner::parse_response(json).unwrap();
+
+        assert_eq!(response.content, "hi");
+        assert!(session_id.is_none());
+        assert!(response.usage.is_none());
+    }
+
+    #[test]
+    fn test_parse_response_null_result() {
+        let json = br#"{"is_error":false}"#;
+        let (response, _) = ClaudeCodeRunner::parse_response(json).unwrap();
+        assert_eq!(response.content, "");
+    }
+
+    #[test]
+    fn test_parse_response_invalid_json() {
+        let json = b"not json at all";
+        let err = ClaudeCodeRunner::parse_response(json).unwrap_err();
+        assert_eq!(err.kind, crate::types::ErrorKind::Internal);
     }
 }

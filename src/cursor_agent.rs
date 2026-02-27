@@ -188,6 +188,14 @@ impl LlmProvider for CursorAgentRunner {
     }
 
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
+        if request.temperature.is_some() || request.max_tokens.is_some() {
+            debug!(
+                temperature = ?request.temperature,
+                max_tokens = ?request.max_tokens,
+                "Cursor Agent CLI does not support temperature or max_tokens; ignoring",
+            );
+        }
+
         let prompt = build_user_prompt(&request.messages);
         let mut cmd = self.build_command(&prompt, "json");
 

@@ -253,9 +253,18 @@ pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
     /// Model identifier (provider-specific)
     pub model: Option<String>,
-    /// Temperature for response randomness (0.0 - 2.0)
+    /// Temperature for response randomness (0.0 - 2.0).
+    ///
+    /// Not all CLI runners support this. Currently no runner propagates
+    /// temperature; it is accepted for API compatibility and ignored by
+    /// runners that lack a corresponding CLI flag.
     pub temperature: Option<f32>,
-    /// Maximum tokens to generate
+    /// Maximum tokens to generate.
+    ///
+    /// Runner support varies:
+    /// - **Claude Code**: propagated via `CLAUDE_CODE_MAX_OUTPUT_TOKENS` env var.
+    /// - **Copilot / Cursor Agent / `OpenCode`**: not supported by the CLI;
+    ///   the field is accepted but ignored.
     pub max_tokens: Option<u32>,
     /// Whether to stream the response
     pub stream: bool,

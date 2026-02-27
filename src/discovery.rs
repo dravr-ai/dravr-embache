@@ -22,7 +22,7 @@ const DISCOVERY_ORDER: &[CliRunnerType] = &[
 
 /// Discover the first available CLI runner on the system
 ///
-/// Probes runners in priority order: Claude Code → Cursor Agent → `OpenCode`.
+/// Probes runners in priority order: Claude Code → Copilot → Cursor Agent → `OpenCode`.
 /// Returns a `RunnerConfig` for the first binary found on `PATH` or via its
 /// environment-variable override.
 ///

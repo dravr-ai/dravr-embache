@@ -52,7 +52,10 @@ impl CliCapabilities {
 
 /// Detect capabilities of an installed CLI binary
 ///
-/// Runs the binary with `--version` and `--help` to determine supported features.
+/// Runs the binary with `--version` to obtain the version string, then maps
+/// known capabilities for the runner type. Feature flags (JSON output,
+/// streaming, system prompt, session resume) are determined from a static
+/// capability table keyed by runner type and version.
 ///
 /// # Errors
 ///

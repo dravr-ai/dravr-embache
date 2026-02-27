@@ -123,8 +123,19 @@ async fn check_claude_readiness(binary_path: &Path) -> Result<ProviderReadiness,
     }
 }
 
-/// Copilot CLI uses `--version` to verify installation and implicit auth
+/// Check Copilot readiness via `gh auth status` for real auth verification.
+///
+/// Falls back to a `copilot --version` probe if `gh` is not available.
+/// A successful `--version` only confirms the binary exists; `gh auth status`
+/// confirms the user is actually authenticated with GitHub.
 async fn check_copilot_readiness(binary_path: &Path) -> Result<ProviderReadiness, RunnerError> {
+    // Try `gh auth status` for a real authentication check
+    if let Some(gh_result) = check_gh_auth_status().await {
+        return Ok(gh_result);
+    }
+
+    // Fall back to version probe when `gh` is unavailable
+    debug!("gh CLI not available, falling back to copilot --version probe");
     let mut cmd = Command::new(binary_path);
     cmd.arg("--version");
 
@@ -132,7 +143,7 @@ async fn check_copilot_readiness(binary_path: &Path) -> Result<ProviderReadiness
 
     match output {
         Ok(CliOutput { exit_code: 0, .. }) => {
-            debug!("Copilot CLI version probe succeeded");
+            debug!("Copilot CLI version probe succeeded (auth not verified)");
             Ok(ProviderReadiness::Ready)
         }
         Ok(cli_output) => {
@@ -152,7 +163,37 @@ async fn check_copilot_readiness(binary_path: &Path) -> Result<ProviderReadiness
     }
 }
 
-/// Generic version probe — success means the binary is functional
+/// Attempt to verify GitHub authentication via `gh auth status`.
+///
+/// Returns `Some(ProviderReadiness)` when `gh` is available and produces
+/// a definitive result; returns `None` when `gh` cannot be found so the
+/// caller can fall back to another probe.
+async fn check_gh_auth_status() -> Option<ProviderReadiness> {
+    let mut cmd = Command::new("gh");
+    cmd.args(["auth", "status"]);
+
+    let output = run_cli_command(&mut cmd, AUTH_CHECK_TIMEOUT, AUTH_CHECK_MAX_OUTPUT)
+        .await
+        .ok()?;
+
+    if output.exit_code == 0 {
+        debug!("gh auth status: authenticated");
+        Some(ProviderReadiness::Ready)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!(%stderr, "gh auth status: not authenticated");
+        Some(ProviderReadiness::NotReady {
+            reason: "GitHub CLI reports not authenticated".to_owned(),
+            action: "Run `gh auth login` to authenticate with GitHub".to_owned(),
+        })
+    }
+}
+
+/// Generic version probe — success means the binary is installed and executable.
+///
+/// This does NOT verify authentication; it only confirms the binary can
+/// run `--version` without error. Runners that lack a dedicated auth
+/// sub-command fall back to this heuristic.
 async fn check_version_probe(
     binary_path: &Path,
     name: &str,
@@ -178,5 +219,62 @@ async fn check_version_probe(
         Err(e) => Ok(ProviderReadiness::Unknown {
             reason: format!("Failed to run {name} --version: {e}"),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_provider_readiness_is_ready() {
+        assert!(ProviderReadiness::Ready.is_ready());
+    }
+
+    #[test]
+    fn test_provider_readiness_not_ready() {
+        let status = ProviderReadiness::NotReady {
+            reason: "not authed".to_owned(),
+            action: "login".to_owned(),
+        };
+        assert!(!status.is_ready());
+    }
+
+    #[test]
+    fn test_provider_readiness_binary_missing() {
+        let status = ProviderReadiness::BinaryMissing {
+            expected_binary: "claude".to_owned(),
+        };
+        assert!(!status.is_ready());
+    }
+
+    #[test]
+    fn test_provider_readiness_unknown() {
+        let status = ProviderReadiness::Unknown {
+            reason: "timeout".to_owned(),
+        };
+        assert!(!status.is_ready());
+    }
+
+    #[test]
+    fn test_provider_readiness_display() {
+        assert_eq!(format!("{}", ProviderReadiness::Ready), "ready");
+
+        let not_ready = ProviderReadiness::NotReady {
+            reason: "expired token".to_owned(),
+            action: "re-login".to_owned(),
+        };
+        assert!(format!("{not_ready}").contains("expired token"));
+        assert!(format!("{not_ready}").contains("re-login"));
+
+        let missing = ProviderReadiness::BinaryMissing {
+            expected_binary: "claude".to_owned(),
+        };
+        assert!(format!("{missing}").contains("claude"));
+
+        let unknown = ProviderReadiness::Unknown {
+            reason: "error".to_owned(),
+        };
+        assert!(format!("{unknown}").contains("error"));
     }
 }

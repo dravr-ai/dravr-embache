@@ -90,3 +90,56 @@ pub fn build_policy(
     };
     Ok(SandboxPolicy::new(dir).with_env_keys(allowed_env_keys.to_vec()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sandbox_policy_defaults() {
+        let policy = SandboxPolicy::new(PathBuf::from("/tmp"));
+        assert_eq!(policy.working_directory, PathBuf::from("/tmp"));
+        assert!(!policy.allowed_env_keys.is_empty());
+        assert!(policy.allowed_tools.is_empty());
+    }
+
+    #[test]
+    fn test_sandbox_policy_with_custom_keys() {
+        let policy =
+            SandboxPolicy::new(PathBuf::from("/tmp")).with_env_keys(vec!["CUSTOM_KEY".to_owned()]);
+        assert_eq!(policy.allowed_env_keys, vec!["CUSTOM_KEY"]);
+    }
+
+    #[test]
+    fn test_sandbox_policy_with_allowed_tools() {
+        let policy = SandboxPolicy::new(PathBuf::from("/tmp"))
+            .with_allowed_tools(vec!["bash".to_owned(), "git".to_owned()]);
+        assert_eq!(policy.allowed_tools.len(), 2);
+        assert!(policy.allowed_tools.contains(&"bash".to_owned()));
+    }
+
+    #[test]
+    fn test_build_policy_fallback_to_cwd() {
+        let keys = vec!["HOME".to_owned()];
+        let policy = build_policy(None, &keys).unwrap();
+        // With None, should fall back to current directory
+        assert_eq!(policy.working_directory, env::current_dir().unwrap());
+    }
+
+    #[test]
+    fn test_build_policy_nonexistent_dir_falls_back() {
+        let keys = vec!["HOME".to_owned()];
+        let policy = build_policy(Some(Path::new("/nonexistent/path/xyz123")), &keys).unwrap();
+        // Nonexistent path should fall back to cwd
+        assert_eq!(policy.working_directory, env::current_dir().unwrap());
+    }
+
+    #[test]
+    fn test_build_policy_existing_dir() {
+        let keys = vec!["HOME".to_owned()];
+        let dir = env::temp_dir();
+        let policy = build_policy(Some(&dir), &keys).unwrap();
+        assert_eq!(policy.working_directory, dir);
+        assert_eq!(policy.allowed_env_keys, vec!["HOME"]);
+    }
+}

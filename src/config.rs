@@ -158,3 +158,104 @@ use std::num::ParseIntError;
 pub fn parse_timeout(input: &str) -> Result<Duration, ParseIntError> {
     input.trim().parse::<u64>().map(Duration::from_secs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_runner_config_defaults() {
+        let config = RunnerConfig::new(PathBuf::from("/usr/bin/claude"));
+        assert_eq!(config.binary_path, PathBuf::from("/usr/bin/claude"));
+        assert!(config.model.is_none());
+        assert_eq!(config.timeout, Duration::from_secs(120));
+        assert!(config.extra_args.is_empty());
+        assert!(config.working_directory.is_none());
+    }
+
+    #[test]
+    fn test_runner_config_builder() {
+        let config = RunnerConfig::new(PathBuf::from("claude"))
+            .with_model("opus")
+            .with_timeout(Duration::from_secs(60))
+            .with_extra_args(vec!["--verbose".to_owned()])
+            .with_working_directory(PathBuf::from("/tmp"));
+
+        assert_eq!(config.model.as_deref(), Some("opus"));
+        assert_eq!(config.timeout, Duration::from_secs(60));
+        assert_eq!(config.extra_args, vec!["--verbose"]);
+        assert_eq!(config.working_directory, Some(PathBuf::from("/tmp")));
+    }
+
+    #[test]
+    fn test_default_allowed_env_keys() {
+        let keys = default_allowed_env_keys();
+        assert!(keys.contains(&"HOME".to_owned()));
+        assert!(keys.contains(&"PATH".to_owned()));
+        assert!(keys.contains(&"TERM".to_owned()));
+        assert!(keys.contains(&"USER".to_owned()));
+        assert!(keys.contains(&"LANG".to_owned()));
+        assert_eq!(keys.len(), 5);
+    }
+
+    #[test]
+    fn test_parse_env_keys_basic() {
+        let keys = parse_env_keys("FOO,BAR,BAZ");
+        assert_eq!(keys, vec!["FOO", "BAR", "BAZ"]);
+    }
+
+    #[test]
+    fn test_parse_env_keys_with_whitespace() {
+        let keys = parse_env_keys(" FOO , BAR , BAZ ");
+        assert_eq!(keys, vec!["FOO", "BAR", "BAZ"]);
+    }
+
+    #[test]
+    fn test_parse_env_keys_empty_string() {
+        let keys = parse_env_keys("");
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_parse_env_keys_trailing_comma() {
+        let keys = parse_env_keys("FOO,BAR,");
+        assert_eq!(keys, vec!["FOO", "BAR"]);
+    }
+
+    #[test]
+    fn test_parse_timeout_valid() {
+        assert_eq!(parse_timeout("60"), Ok(Duration::from_secs(60)));
+        assert_eq!(parse_timeout("  120  "), Ok(Duration::from_secs(120)));
+    }
+
+    #[test]
+    fn test_parse_timeout_invalid() {
+        assert!(parse_timeout("abc").is_err());
+        assert!(parse_timeout("").is_err());
+    }
+
+    #[test]
+    fn test_cli_runner_type_binary_names() {
+        assert_eq!(CliRunnerType::ClaudeCode.binary_name(), "claude");
+        assert_eq!(CliRunnerType::CursorAgent.binary_name(), "cursor-agent");
+        assert_eq!(CliRunnerType::OpenCode.binary_name(), "opencode");
+        assert_eq!(CliRunnerType::Copilot.binary_name(), "copilot");
+    }
+
+    #[test]
+    fn test_cli_runner_type_env_keys() {
+        assert_eq!(
+            CliRunnerType::ClaudeCode.env_override_key(),
+            "CLAUDE_CODE_BINARY"
+        );
+        assert_eq!(CliRunnerType::Copilot.env_override_key(), "COPILOT_BINARY");
+    }
+
+    #[test]
+    fn test_cli_runner_type_display() {
+        assert_eq!(format!("{}", CliRunnerType::ClaudeCode), "claude_code");
+        assert_eq!(format!("{}", CliRunnerType::Copilot), "copilot");
+        assert_eq!(format!("{}", CliRunnerType::CursorAgent), "cursor_agent");
+        assert_eq!(format!("{}", CliRunnerType::OpenCode), "opencode");
+    }
+}
