@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "echo '✅ embache workspace ready - git hooks configured'"
+            "command": "echo '✅ embacle workspace ready - git hooks configured'"
           },
           {
             "type": "command",

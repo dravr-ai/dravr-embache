@@ -7,7 +7,7 @@ user-invocable: true
 # Strict Clippy Check Skill
 
 ## Purpose
-Enforces embache's zero-tolerance code quality policy using Clippy with strict lints.
+Enforces embacle's zero-tolerance code quality policy using Clippy with strict lints.
 
 ## Usage
 Run this skill before every commit and after refactoring.
@@ -26,7 +26,7 @@ cargo clippy --fix --all-targets --allow-dirty -- -D warnings
 
 ## Linting Configuration
 
-embache uses `Cargo.toml` lints configuration:
+embacle uses `Cargo.toml` lints configuration:
 
 ```toml
 [lints.clippy]

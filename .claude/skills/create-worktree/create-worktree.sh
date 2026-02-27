@@ -28,7 +28,7 @@ fi
 
 BRANCH_NAME="$1"
 MAIN_WORKTREE="$(git rev-parse --show-toplevel)"
-WORKTREE_PATH="${2:-$(dirname "$MAIN_WORKTREE")/embache-${BRANCH_NAME//\//-}}"
+WORKTREE_PATH="${2:-$(dirname "$MAIN_WORKTREE")/embacle-${BRANCH_NAME//\//-}}"
 
 echo "Creating worktree for branch: $BRANCH_NAME"
 echo "Worktree path: $WORKTREE_PATH"

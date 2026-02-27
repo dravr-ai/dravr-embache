@@ -1,6 +1,6 @@
 # Embache — LLM Runners
 
-[![CI](https://github.com/dravr-ai/dravr-embache/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embache/actions/workflows/ci.yml)
+[![CI](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE.md)
 
 Standalone Rust library that wraps AI CLI tools and SDKs as pluggable LLM providers.
@@ -30,18 +30,18 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embache = { git = "https://github.com/dravr-ai/dravr-embache.git", branch = "main" }
+embacle = { git = "https://github.com/dravr-ai/dravr-embacle.git", branch = "main" }
 ```
 
 Use a CLI runner:
 
 ```rust
 use std::path::PathBuf;
-use embache::{ClaudeCodeRunner, RunnerConfig};
-use embache::types::{ChatMessage, ChatRequest, LlmProvider};
+use embacle::{ClaudeCodeRunner, RunnerConfig};
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
 
 #[tokio::main]
-async fn main() -> Result<(), embache::types::RunnerError> {
+async fn main() -> Result<(), embacle::types::RunnerError> {
     let config = RunnerConfig::new(PathBuf::from("claude"));
     let runner = ClaudeCodeRunner::new(config);
 
@@ -61,15 +61,15 @@ Enable the `copilot-sdk` feature for persistent JSON-RPC instead of per-request 
 
 ```toml
 [dependencies]
-embache = { git = "https://github.com/dravr-ai/dravr-embache.git", branch = "main", features = ["copilot-sdk"] }
+embacle = { git = "https://github.com/dravr-ai/dravr-embacle.git", branch = "main", features = ["copilot-sdk"] }
 ```
 
 ```rust
-use embache::{CopilotSdkRunner, CopilotSdkConfig};
-use embache::types::{ChatMessage, ChatRequest, LlmProvider};
+use embacle::{CopilotSdkRunner, CopilotSdkConfig};
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
 
 #[tokio::main]
-async fn main() -> Result<(), embache::types::RunnerError> {
+async fn main() -> Result<(), embacle::types::RunnerError> {
     // Reads COPILOT_SDK_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
     let runner = CopilotSdkRunner::from_env();
 
@@ -96,7 +96,7 @@ The SDK runner starts `copilot --headless` once and reuses the connection across
 
 ```
 Your Application
-    └── embache (this library)
+    └── embacle (this library)
             │
             ├── CLI Runners (subprocess per request)
             │   ├── ClaudeCodeRunner    → spawns `claude -p "prompt" --output-format json`

@@ -1,5 +1,5 @@
 #!/bin/bash
-# ABOUTME: Pre-push validation script for embache
+# ABOUTME: Pre-push validation script for embacle
 # ABOUTME: Runs fmt, clippy, tests and creates validation marker
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0

@@ -2,14 +2,14 @@
 # ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) and SDKs (Copilot SDK)
 
 [package]
-name = "embache"
+name = "embacle"
 version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "LLM runner library — wraps AI CLI tools and SDKs as pluggable LLM providers"
-repository = "https://github.com/dravr-ai/dravr-embache"
-homepage = "https://github.com/dravr-ai/dravr-embache"
-documentation = "https://docs.rs/embache"
+repository = "https://github.com/dravr-ai/dravr-embacle"
+homepage = "https://github.com/dravr-ai/dravr-embacle"
+documentation = "https://docs.rs/embacle"
 keywords = ["llm", "cli", "ai", "claude", "copilot"]
 categories = ["command-line-utilities", "api-bindings"]
 readme = "README.md"

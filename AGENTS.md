@@ -25,7 +25,7 @@
 
 ## Project Overview
 
-**embache** is a standalone Rust library that wraps AI CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) as pluggable LLM providers via subprocess execution.
+**embacle** is a standalone Rust library that wraps AI CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) as pluggable LLM providers via subprocess execution.
 
 ### Architecture
 ```

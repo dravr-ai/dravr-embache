@@ -41,7 +41,7 @@ Creates a new git worktree with a feature branch, automatically copying environm
 ### Manual steps (if script unavailable):
 ```bash
 BRANCH="feature/my-feature"
-WORKTREE="../embache-${BRANCH//\//-}"
+WORKTREE="../embacle-${BRANCH//\//-}"
 
 git worktree add -b "$BRANCH" "$WORKTREE"
 cp .envrc "$WORKTREE/"
@@ -52,7 +52,7 @@ cd "$WORKTREE" && direnv allow
 ## Cleanup
 When done with a worktree:
 ```bash
-git worktree remove ../embache-feature-my-feature
+git worktree remove ../embacle-feature-my-feature
 git branch -d feature/my-feature  # if merged
 ```
 

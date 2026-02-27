@@ -11,10 +11,10 @@
 use std::process;
 use std::time::Duration;
 
-use embache::compat::detect_capabilities;
-use embache::config::CliRunnerType;
-use embache::types::{ChatMessage, ChatRequest, LlmProvider};
-use embache::{auth::check_readiness, discovery::resolve_binary, ClaudeCodeRunner, RunnerConfig};
+use embacle::compat::detect_capabilities;
+use embacle::config::CliRunnerType;
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
+use embacle::{auth::check_readiness, discovery::resolve_binary, ClaudeCodeRunner, RunnerConfig};
 use tokio_stream::StreamExt;
 
 #[tokio::main]

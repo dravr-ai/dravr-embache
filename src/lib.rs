@@ -18,10 +18,10 @@
 //!
 //! ```rust,no_run
 //! use std::path::PathBuf;
-//! use embache::{ClaudeCodeRunner, RunnerConfig};
-//! use embache::types::{ChatMessage, ChatRequest, LlmProvider};
+//! use embacle::{ClaudeCodeRunner, RunnerConfig};
+//! use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
 //!
-//! # async fn example() -> Result<(), embache::types::RunnerError> {
+//! # async fn example() -> Result<(), embacle::types::RunnerError> {
 //! let config = RunnerConfig::new(PathBuf::from("claude"));
 //! let runner = ClaudeCodeRunner::new(config);
 //! let request = ChatRequest::new(vec![ChatMessage::user("Hello!")]);

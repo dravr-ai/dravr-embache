@@ -1,5 +1,5 @@
 #!/bin/bash
-# ABOUTME: Pre-commit hook for embache code quality enforcement
+# ABOUTME: Pre-commit hook for embacle code quality enforcement
 # ABOUTME: Checks SPDX headers, blocks suspicious files and unauthorized markdown
 
 set -e
