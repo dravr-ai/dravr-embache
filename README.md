@@ -1,11 +1,11 @@
-# Embache — LLM Runners
+# Embacle — LLM Runners
 
 [![CI](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE.md)
 
 Standalone Rust library that wraps AI CLI tools and SDKs as pluggable LLM providers.
 
-Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embache** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional SDK mode maintains a persistent JSON-RPC connection for native tool calling.
+Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional SDK mode maintains a persistent JSON-RPC connection for native tool calling.
 
 ## Supported Runners
 

@@ -13,7 +13,7 @@ MARKER_FILE="$GIT_DIR/validation-passed"
 VALIDATION_TTL_MINUTES=15
 
 echo ""
-echo "🔍 Embache - Pre-Push Validation"
+echo "🔍 Embacle - Pre-Push Validation"
 echo "================================="
 echo ""
 
