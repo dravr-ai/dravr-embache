@@ -23,7 +23,7 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
@@ -141,6 +141,13 @@ impl ClaudeCodeRunner {
             &self.config.allowed_env_keys,
         ) {
             apply_sandbox(&mut cmd, &policy);
+            debug!(
+                allowed_keys = ?policy.allowed_env_keys,
+                cwd = %policy.working_directory.display(),
+                "Sandbox applied to claude command"
+            );
+        } else {
+            warn!("Failed to build sandbox policy, running with inherited env");
         }
 
         // Inject max output tokens after sandbox (env_clear) so the value persists
@@ -211,6 +218,7 @@ impl LlmProvider for ClaudeCodeRunner {
         &self.available_models
     }
 
+    #[instrument(skip_all, fields(runner = "claude_code"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         let system = extract_system_message(&request.messages);
         let prompt = build_user_prompt(&request.messages);
@@ -224,13 +232,35 @@ impl LlmProvider for ClaudeCodeRunner {
             }
         }
 
+        let model_name = request
+            .model
+            .as_deref()
+            .unwrap_or_else(|| self.default_model());
+        debug!(
+            binary = %self.config.binary_path.display(),
+            model = model_name,
+            has_system_prompt = system.is_some(),
+            prompt_len = prompt.len(),
+            "Spawning claude CLI"
+        );
+
         let output = run_cli_command(&mut cmd, self.config.timeout, MAX_OUTPUT_BYTES).await?;
 
         if output.exit_code != 0 {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            warn!(
+                exit_code = output.exit_code,
+                stdout_len = output.stdout.len(),
+                stderr_len = output.stderr.len(),
+                stdout_preview = %stdout.chars().take(500).collect::<String>(),
+                stderr_preview = %stderr.chars().take(500).collect::<String>(),
+                "Claude CLI failed"
+            );
+            let detail = if stderr.is_empty() { &stdout } else { &stderr };
             return Err(RunnerError::external_service(
                 "claude-code",
-                format!("claude exited with code {}: {stderr}", output.exit_code),
+                format!("claude exited with code {}: {detail}", output.exit_code),
             ));
         }
 
@@ -245,6 +275,7 @@ impl LlmProvider for ClaudeCodeRunner {
         Ok(response)
     }
 
+    #[instrument(skip_all, fields(runner = "claude_code"))]
     async fn complete_stream(&self, request: &ChatRequest) -> Result<ChatStream, RunnerError> {
         let system = extract_system_message(&request.messages);
         let prompt = build_user_prompt(&request.messages);

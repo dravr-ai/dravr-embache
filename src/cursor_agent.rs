@@ -23,7 +23,7 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
@@ -187,6 +187,7 @@ impl LlmProvider for CursorAgentRunner {
         &self.available_models
     }
 
+    #[instrument(skip_all, fields(runner = "cursor_agent"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         if request.temperature.is_some() || request.max_tokens.is_some() {
             debug!(
@@ -210,10 +211,20 @@ impl LlmProvider for CursorAgentRunner {
 
         if output.exit_code != 0 {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            warn!(
+                exit_code = output.exit_code,
+                stdout_len = output.stdout.len(),
+                stderr_len = output.stderr.len(),
+                stdout_preview = %stdout.chars().take(500).collect::<String>(),
+                stderr_preview = %stderr.chars().take(500).collect::<String>(),
+                "Cursor Agent CLI failed"
+            );
+            let detail = if stderr.is_empty() { &stdout } else { &stderr };
             return Err(RunnerError::external_service(
                 "cursor-agent",
                 format!(
-                    "cursor-agent exited with code {}: {stderr}",
+                    "cursor-agent exited with code {}: {detail}",
                     output.exit_code
                 ),
             ));
@@ -230,6 +241,7 @@ impl LlmProvider for CursorAgentRunner {
         Ok(response)
     }
 
+    #[instrument(skip_all, fields(runner = "cursor_agent"))]
     async fn complete_stream(&self, request: &ChatRequest) -> Result<ChatStream, RunnerError> {
         let prompt = build_user_prompt(&request.messages);
         let mut cmd = self.build_command(&prompt, "stream-json");

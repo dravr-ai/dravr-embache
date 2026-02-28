@@ -18,7 +18,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
@@ -220,6 +220,7 @@ impl LlmProvider for CopilotRunner {
         &self.available_models
     }
 
+    #[instrument(skip_all, fields(runner = "copilot"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         if request.temperature.is_some() || request.max_tokens.is_some() {
             debug!(
@@ -236,15 +237,26 @@ impl LlmProvider for CopilotRunner {
 
         if output.exit_code != 0 {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            warn!(
+                exit_code = output.exit_code,
+                stdout_len = output.stdout.len(),
+                stderr_len = output.stderr.len(),
+                stdout_preview = %stdout.chars().take(500).collect::<String>(),
+                stderr_preview = %stderr.chars().take(500).collect::<String>(),
+                "Copilot CLI failed"
+            );
+            let detail = if stderr.is_empty() { &stdout } else { &stderr };
             return Err(RunnerError::external_service(
                 "copilot",
-                format!("copilot exited with code {}: {stderr}", output.exit_code),
+                format!("copilot exited with code {}: {detail}", output.exit_code),
             ));
         }
 
         Self::parse_response(&output.stdout)
     }
 
+    #[instrument(skip_all, fields(runner = "copilot"))]
     async fn complete_stream(&self, request: &ChatRequest) -> Result<ChatStream, RunnerError> {
         let prompt = build_prompt(&request.messages);
         let mut cmd = self.build_command(&prompt, true);

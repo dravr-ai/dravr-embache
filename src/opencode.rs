@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::Command;
 use tokio::sync::Mutex;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use crate::config::RunnerConfig;
 use crate::process::run_cli_command;
@@ -181,6 +181,7 @@ impl LlmProvider for OpenCodeRunner {
         &self.available_models
     }
 
+    #[instrument(skip_all, fields(runner = "opencode"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         if request.temperature.is_some() || request.max_tokens.is_some() {
             debug!(
@@ -204,9 +205,19 @@ impl LlmProvider for OpenCodeRunner {
 
         if output.exit_code != 0 {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            warn!(
+                exit_code = output.exit_code,
+                stdout_len = output.stdout.len(),
+                stderr_len = output.stderr.len(),
+                stdout_preview = %stdout.chars().take(500).collect::<String>(),
+                stderr_preview = %stderr.chars().take(500).collect::<String>(),
+                "OpenCode CLI failed"
+            );
+            let detail = if stderr.is_empty() { &stdout } else { &stderr };
             return Err(RunnerError::external_service(
                 "opencode",
-                format!("opencode exited with code {}: {stderr}", output.exit_code),
+                format!("opencode exited with code {}: {detail}", output.exit_code),
             ));
         }
 
@@ -221,6 +232,7 @@ impl LlmProvider for OpenCodeRunner {
         Ok(response)
     }
 
+    #[instrument(skip_all, fields(runner = "opencode"))]
     async fn complete_stream(&self, _request: &ChatRequest) -> Result<ChatStream, RunnerError> {
         Err(RunnerError::internal(
             "OpenCode CLI does not support streaming responses",

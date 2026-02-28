@@ -394,6 +394,9 @@ pub async fn execute_with_text_tools(
 
     debug!(
         message_count = messages.len(),
+        catalog_len = tool_catalog.len(),
+        tool_count = declarations.len(),
+        max_iterations,
         "Text tool loop: starting with injected tool catalog"
     );
 
@@ -410,6 +413,12 @@ pub async fn execute_with_text_tools(
         if parsed_tool_calls.is_empty() {
             // No tool calls — this is the final text response
             let content = strip_tool_call_blocks(&response.content);
+            debug!(
+                iteration,
+                content_len = content.len(),
+                total_tool_calls = tool_calls_count,
+                "Text tool loop: final response (no tool calls)"
+            );
             return Ok(TextToolResponse {
                 content,
                 usage: response.usage,

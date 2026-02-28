@@ -58,9 +58,14 @@ impl SandboxPolicy {
 pub fn apply_sandbox(cmd: &mut Command, policy: &SandboxPolicy) {
     cmd.env_clear();
 
+    let mut resolved = Vec::new();
+    let mut missing = Vec::new();
     for key in &policy.allowed_env_keys {
         if let Ok(value) = env::var(key) {
             cmd.env(key, &value);
+            resolved.push(key.as_str());
+        } else {
+            missing.push(key.as_str());
         }
     }
 
@@ -68,7 +73,9 @@ pub fn apply_sandbox(cmd: &mut Command, policy: &SandboxPolicy) {
 
     debug!(
         cwd = %policy.working_directory.display(),
-        env_keys = policy.allowed_env_keys.len(),
+        resolved_count = resolved.len(),
+        missing_count = missing.len(),
+        ?missing,
         "Applied sandbox policy"
     );
 }

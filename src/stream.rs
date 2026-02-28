@@ -10,6 +10,7 @@ use std::task::{Context, Poll};
 use tokio::process::Child;
 use tokio::task::JoinHandle;
 use tokio_stream::Stream;
+use tracing::debug;
 
 use crate::types::{RunnerError, StreamChunk};
 
@@ -41,6 +42,7 @@ impl GuardedStream {
         child: Child,
         stderr_task: JoinHandle<Vec<u8>>,
     ) -> Self {
+        debug!(child_pid = child.id().unwrap_or(0), "GuardedStream created");
         Self {
             inner: Box::pin(inner),
             child: Some(child),
@@ -59,6 +61,7 @@ impl Stream for GuardedStream {
 
 impl Drop for GuardedStream {
     fn drop(&mut self) {
+        debug!("GuardedStream dropped, cleaning up child process");
         if let Some(mut child) = self.child.take() {
             let _ = child.start_kill();
         }

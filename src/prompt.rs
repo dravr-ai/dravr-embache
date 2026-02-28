@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
+use tracing::debug;
+
 use crate::types::{ChatMessage, MessageRole};
 
 /// Build a single prompt string from a slice of chat messages
@@ -22,16 +24,29 @@ pub fn build_prompt(messages: &[ChatMessage]) -> String {
         };
         parts.push(format!("{label}\n{}", msg.content));
     }
-    parts.join("\n\n")
+    let prompt = parts.join("\n\n");
+    debug!(
+        message_count = messages.len(),
+        prompt_len = prompt.len(),
+        has_system = messages.iter().any(|m| m.role == MessageRole::System),
+        "Built prompt from messages"
+    );
+    prompt
 }
 
 /// Extract the content of the first system message, if any
 #[must_use]
 pub fn extract_system_message(messages: &[ChatMessage]) -> Option<&str> {
-    messages
+    let result = messages
         .iter()
         .find(|m| m.role == MessageRole::System)
-        .map(|m| m.content.as_str())
+        .map(|m| m.content.as_str());
+    debug!(
+        found = result.is_some(),
+        len = result.map_or(0, str::len),
+        "Extracting system message"
+    );
+    result
 }
 
 /// Build a prompt string from non-system messages only
@@ -54,7 +69,14 @@ pub fn build_user_prompt(messages: &[ChatMessage]) -> String {
         };
         parts.push(format!("{label}\n{}", msg.content));
     }
-    parts.join("\n\n")
+    let prompt = parts.join("\n\n");
+    debug!(
+        total_messages = messages.len(),
+        user_messages = non_system.len(),
+        prompt_len = prompt.len(),
+        "Built user prompt (system messages excluded)"
+    );
+    prompt
 }
 
 #[cfg(test)]

@@ -36,8 +36,10 @@ pub struct RunnerError {
 pub enum ErrorKind {
     /// Internal runner error (bug, unexpected state)
     Internal,
-    /// External service error (CLI tool failure, timeout, bad response)
+    /// External service error (CLI tool failure, bad response)
     ExternalService,
+    /// CLI command exceeded its configured timeout
+    Timeout,
     /// Binary not found or not executable
     BinaryNotFound,
     /// Authentication or authorization failure
@@ -83,6 +85,14 @@ impl RunnerError {
     pub fn config(message: impl Into<String>) -> Self {
         Self {
             kind: ErrorKind::Config,
+            message: message.into(),
+        }
+    }
+
+    /// Create a timeout error
+    pub fn timeout(message: impl Into<String>) -> Self {
+        Self {
+            kind: ErrorKind::Timeout,
             message: message.into(),
         }
     }

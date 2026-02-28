@@ -34,13 +34,21 @@ pub fn discover_runner() -> Result<(CliRunnerType, RunnerConfig), RunnerError> {
         let env_key = runner_type.env_override_key();
         let env_override = env::var(env_key).ok();
 
-        if let Ok(path) = resolve_binary(runner_type.binary_name(), env_override.as_deref()) {
-            debug!(
-                runner = runner_type.binary_name(),
-                path = %path.display(),
-                "Discovered CLI runner"
-            );
-            return Ok((*runner_type, RunnerConfig::new(path)));
+        match resolve_binary(runner_type.binary_name(), env_override.as_deref()) {
+            Ok(path) => {
+                debug!(
+                    runner = runner_type.binary_name(),
+                    path = %path.display(),
+                    "Discovered CLI runner"
+                );
+                return Ok((*runner_type, RunnerConfig::new(path)));
+            }
+            Err(_) => {
+                debug!(
+                    runner = runner_type.binary_name(),
+                    env_key, "Runner not found, trying next"
+                );
+            }
         }
     }
 

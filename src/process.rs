@@ -41,6 +41,7 @@ async fn read_stdout_capped(stream: Option<ChildStdout>, limit: usize) -> Vec<u8
                     let remaining = limit.saturating_sub(buf.len());
                     buf.extend_from_slice(&tmp[..n.min(remaining)]);
                     if buf.len() >= limit {
+                        warn!(limit_bytes = limit, "stdout output truncated at cap");
                         break;
                     }
                 }
@@ -134,10 +135,9 @@ pub async fn run_cli_command(
         Err(_) => {
             warn!(?timeout, "CLI command timed out, killing process");
             let _ = child.kill().await;
-            Err(RunnerError::external_service(
-                "cli-runner",
-                format!("CLI command timed out after {timeout:?}"),
-            ))
+            Err(RunnerError::timeout(format!(
+                "CLI command timed out after {timeout:?}"
+            )))
         }
     }
 }
