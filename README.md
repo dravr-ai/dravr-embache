@@ -92,6 +92,47 @@ The SDK runner starts `copilot --headless` once and reuses the connection across
 | `COPILOT_SDK_TRANSPORT` | `stdio` | Transport mode: `stdio` or `tcp` |
 | `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
 
+## MCP Server (`embacle-mcp`)
+
+A standalone MCP server binary that exposes embacle runners via the [Model Context Protocol](https://modelcontextprotocol.io/). Connect any MCP-compatible client (Claude Desktop, editors, custom agents) to use all embacle providers.
+
+### Usage
+
+```bash
+# Stdio transport (default — for editor/client integration)
+embacle-mcp --provider copilot
+
+# HTTP transport (for network-accessible deployments)
+embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
+```
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_provider` | Get active LLM provider and list available providers |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`) |
+| `get_model` | Get current model and list available models for the active provider |
+| `set_model` | Set the model for subsequent requests (pass null to reset to default) |
+| `get_multiplex_provider` | Get providers configured for multiplex dispatch |
+| `set_multiplex_provider` | Configure providers for fan-out mode |
+| `prompt` | Send chat messages to the active provider, or multiplex to all configured providers |
+
+### Client Configuration
+
+Add to your MCP client config (e.g. Claude Desktop `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "embacle": {
+      "command": "embacle-mcp",
+      "args": ["--provider", "copilot"]
+    }
+  }
+}
+```
+
 ## Architecture
 
 ```
@@ -106,6 +147,9 @@ Your Application
             │
             ├── SDK Runners (persistent connection, behind feature flag)
             │   └── CopilotSdkRunner    → JSON-RPC to `copilot --headless`
+            │
+            ├── MCP Server (separate binary crate)
+            │   └── embacle-mcp         → JSON-RPC 2.0 over stdio or HTTP/SSE
             │
             └── Tool Simulation (text-based tool calling for CLI runners)
                 └── execute_with_text_tools()  → catalog injection, XML parsing, tool loop

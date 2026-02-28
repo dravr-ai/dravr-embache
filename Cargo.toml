@@ -1,6 +1,9 @@
 # ABOUTME: Standalone LLM runner library wrapping AI CLI tools and SDKs as pluggable providers
 # ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) and SDKs (Copilot SDK)
 
+[workspace]
+members = [".", "crates/embacle-mcp"]
+
 [package]
 name = "embacle"
 version = "0.2.0"
