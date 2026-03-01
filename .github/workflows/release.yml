@@ -209,6 +209,23 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish -p embacle-copilot-sdk
+
+          echo "Waiting for crates.io to index embacle-copilot-sdk..."
+          sleep 30
+
+          cargo publish -p embacle
+
+          echo "Waiting for crates.io to index embacle..."
+          sleep 30
+
+          cargo publish -p embacle-mcp
+          cargo publish -p embacle-server
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -222,20 +239,3 @@ jobs:
           name: v${{ needs.version.outputs.version }}
           body_path: CHANGELOG.md
           files: artifacts/*
-
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          cargo publish -p embacle-copilot-sdk --allow-dirty
-
-          echo "Waiting for crates.io to index embacle-copilot-sdk..."
-          sleep 30
-
-          cargo publish -p embacle --allow-dirty
-
-          echo "Waiting for crates.io to index embacle..."
-          sleep 30
-
-          cargo publish -p embacle-mcp --allow-dirty
-          cargo publish -p embacle-server --allow-dirty
