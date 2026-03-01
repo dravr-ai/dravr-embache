@@ -1,7 +1,7 @@
 // ABOUTME: Transport abstraction for MCP server communication channels
 // ABOUTME: Defines the McpTransport trait implemented by stdio and HTTP backends
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 pub mod http;

@@ -1,7 +1,7 @@
 // ABOUTME: CLI entry point for the embacle REST API server binary
 // ABOUTME: Parses arguments, creates shared state, and starts the axum HTTP server
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::sync::Arc;

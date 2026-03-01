@@ -2,7 +2,7 @@
 # ABOUTME: Squash merges a feature branch to main and cleans up worktree
 # ABOUTME: Run from main worktree after CI passes on feature branch
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -euo pipefail

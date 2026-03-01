@@ -1,7 +1,7 @@
 // ABOUTME: Auth readiness checking for CLI-based LLM runners
 // ABOUTME: Verifies that CLI tools are installed, authenticated, and ready to use
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::fmt;

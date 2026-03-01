@@ -54,7 +54,7 @@ check_license_headers() {
         echo -e "$missing_headers"
         echo ""
         echo "All source files must have SPDX headers. Format:"
-        echo "  // SPDX-License-Identifier: MIT OR Apache-2.0"
+        echo "  // SPDX-License-Identifier: Apache-2.0"
         echo "  // Copyright (c) 2026 dravr.ai"
         return 1
     fi

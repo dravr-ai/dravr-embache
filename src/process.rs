@@ -1,7 +1,7 @@
 // ABOUTME: Subprocess spawning with timeout and output-size safety limits
 // ABOUTME: Wraps tokio::process::Command with structured output and error handling
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::process::Stdio;

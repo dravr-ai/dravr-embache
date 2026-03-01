@@ -1,7 +1,7 @@
 // ABOUTME: Tool registry that maps MCP tool names to handler implementations
 // ABOUTME: Provides the McpTool trait and ToolRegistry for tool discovery and dispatch
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 pub mod model;

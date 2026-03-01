@@ -1,7 +1,7 @@
 // ABOUTME: Converts tool definitions between generic format and copilot-sdk Tool format.
 // ABOUTME: Bridges function declarations to copilot_sdk::Tool for native tool calling.
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use copilot_sdk::Tool;

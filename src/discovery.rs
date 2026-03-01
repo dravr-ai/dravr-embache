@@ -1,7 +1,7 @@
 // ABOUTME: Binary auto-detection for CLI-based LLM runners
 // ABOUTME: Discovers available CLI tools on the system in priority order
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::env;

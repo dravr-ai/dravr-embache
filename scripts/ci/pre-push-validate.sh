@@ -2,7 +2,7 @@
 # ABOUTME: Pre-push validation script - runs all checks before pushing
 # ABOUTME: Creates validation-passed marker in git dir (supports worktrees)
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -e

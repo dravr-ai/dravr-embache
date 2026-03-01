@@ -1,7 +1,7 @@
 // ABOUTME: POST /v1/chat/completions handler for OpenAI-compatible chat completion
 // ABOUTME: Routes to single provider or multiplex, supports both streaming and non-streaming
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::sync::atomic::{AtomicU64, Ordering};

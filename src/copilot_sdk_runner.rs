@@ -1,7 +1,7 @@
 // ABOUTME: CopilotSdkRunner wraps the copilot-sdk for LLM completions with native tool calling.
 // ABOUTME: Manages the copilot --headless server lifecycle via JSON-RPC and implements LlmProvider.
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::sync::Arc;

@@ -1,7 +1,7 @@
 // ABOUTME: Library root re-exporting server modules for integration testing
 // ABOUTME: Enables tests/ to access router, state, types, and handler modules
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 pub mod auth;

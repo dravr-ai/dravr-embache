@@ -1,17 +1,17 @@
 # ABOUTME: MCP server crate exposing embacle LLM runners via Model Context Protocol
 # ABOUTME: Supports stdio and HTTP/SSE transports with provider, model, and multiplex tools
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 [package]
 name = "embacle-mcp"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 description = "MCP server for embacle LLM runners — expose AI CLI tools via Model Context Protocol"
 repository = "https://github.com/dravr-ai/dravr-embacle"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["mcp", "llm", "cli", "ai"]
 categories = ["command-line-utilities", "development-tools"]
 

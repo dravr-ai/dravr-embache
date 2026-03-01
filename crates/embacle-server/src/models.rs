@@ -1,7 +1,7 @@
 // ABOUTME: GET /v1/models handler listing available providers and their models
 // ABOUTME: Probes installed CLI binaries and returns OpenAI-compatible model list
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use axum::extract::State;

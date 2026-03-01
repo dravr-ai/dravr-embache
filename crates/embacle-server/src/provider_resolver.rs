@@ -1,7 +1,7 @@
 // ABOUTME: Parses model strings with optional provider prefix into (CliRunnerType, model) pairs
 // ABOUTME: Supports "provider:model", "provider", and bare "model" with server default fallback
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use embacle::config::CliRunnerType;

@@ -1,7 +1,7 @@
 // ABOUTME: Standalone LLM runner library wrapping AI CLI tools and SDKs as providers
 // ABOUTME: Re-exports runners for Claude Code, Copilot, Cursor Agent, OpenCode, and Copilot SDK
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 //! # Embacle — LLM Runners

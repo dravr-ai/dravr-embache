@@ -1,7 +1,7 @@
 // ABOUTME: Stream wrapper that owns a child process for proper lifecycle management
 // ABOUTME: Prevents zombie processes, drains stderr, and kills child on drop
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::pin::Pin;

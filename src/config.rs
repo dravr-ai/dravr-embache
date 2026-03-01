@@ -1,7 +1,7 @@
 // ABOUTME: Shared configuration types for CLI-based LLM runners
 // ABOUTME: Defines runner types, runner configuration, and environment key parsing
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::fmt;

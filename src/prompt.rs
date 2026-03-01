@@ -1,7 +1,7 @@
 // ABOUTME: Prompt construction from ChatMessage sequences for CLI invocations
 // ABOUTME: Extracts system messages and builds role-prefixed prompt strings
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use tracing::debug;

@@ -1,7 +1,7 @@
 // ABOUTME: Version compatibility and capability detection for CLI LLM runners
 // ABOUTME: Probes installed CLI binaries to determine supported features and minimum version
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::path::Path;

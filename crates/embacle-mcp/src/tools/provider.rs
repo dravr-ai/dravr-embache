@@ -1,7 +1,7 @@
 // ABOUTME: MCP tools for getting and setting the active LLM provider
 // ABOUTME: Maps provider names to embacle CliRunnerType for runtime provider switching
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use async_trait::async_trait;

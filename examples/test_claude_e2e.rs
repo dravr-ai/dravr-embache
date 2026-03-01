@@ -1,7 +1,7 @@
 // ABOUTME: End-to-end test binary for ClaudeCodeRunner against the real claude CLI
 // ABOUTME: Validates subprocess spawning, JSON parsing, streaming, auth, and compat detection
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 //
 // Usage: cargo run -p cli-llm-runners --example test_claude_e2e

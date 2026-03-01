@@ -1,7 +1,7 @@
 // ABOUTME: MCP server core that routes JSON-RPC requests to protocol handlers and tools
 // ABOUTME: Implements initialize, tools/list, tools/call, and ping MCP methods
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use serde_json::Value;

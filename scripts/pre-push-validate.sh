@@ -2,7 +2,7 @@
 # ABOUTME: Pre-push validation script for embacle
 # ABOUTME: Runs fmt, clippy, tests and creates validation marker
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -e

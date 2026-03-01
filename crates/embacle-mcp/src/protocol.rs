@@ -1,7 +1,7 @@
 // ABOUTME: MCP JSON-RPC protocol types for request/response handling
 // ABOUTME: Defines wire format for initialize, tools/list, tools/call, and error responses
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use serde::{Deserialize, Serialize};

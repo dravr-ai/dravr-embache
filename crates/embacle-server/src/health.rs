@@ -1,7 +1,7 @@
 // ABOUTME: GET /health handler checking provider availability and readiness
 // ABOUTME: Returns per-provider status and HTTP 200 if any provider is ready, 503 if none
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::collections::HashMap;

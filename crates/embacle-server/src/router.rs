@@ -1,7 +1,7 @@
 // ABOUTME: Axum router wiring all REST endpoints for the OpenAI-compatible API
 // ABOUTME: Mounts completions, models, and health routes with optional auth middleware
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use axum::middleware;

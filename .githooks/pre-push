@@ -2,7 +2,7 @@
 # ABOUTME: Git pre-push hook - Checks for validation marker before allowing push
 # ABOUTME: Requires running ./scripts/ci/pre-push-validate.sh first (prevents SSH timeout)
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -e

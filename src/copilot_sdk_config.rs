@@ -1,7 +1,7 @@
 // ABOUTME: Configuration for the Copilot SDK provider.
 // ABOUTME: Reads environment variables and provides defaults for the SDK client.
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::env;

@@ -1,7 +1,7 @@
 // ABOUTME: Core types for CLI LLM runners — standalone definitions independent of pierre-core
 // ABOUTME: Provides LlmProvider trait, ChatRequest/Response, error types, and capability flags
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 //! # Core Types

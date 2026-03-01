@@ -1,7 +1,7 @@
 // ABOUTME: HTTP transport implementing MCP Streamable HTTP with JSON and SSE responses
 // ABOUTME: Serves a POST endpoint that accepts JSON-RPC and responds via JSON or event stream
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::convert::Infallible;

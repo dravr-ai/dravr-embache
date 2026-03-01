@@ -2,7 +2,7 @@
 # ABOUTME: Prepares a feature branch for merge by rebasing onto main
 # ABOUTME: Handles rebase, push, and provides CI monitoring instructions
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -euo pipefail

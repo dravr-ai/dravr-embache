@@ -1,7 +1,7 @@
 // ABOUTME: Factory for creating embacle LlmProvider instances from runner type identifiers
 // ABOUTME: Resolves binary paths and constructs the appropriate runner with default config
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::env;

@@ -1,17 +1,17 @@
 # ABOUTME: OpenAI-compatible REST API server exposing embacle LLM runners
 # ABOUTME: Proxies chat completions to CLI tools via standard HTTP endpoints
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 [package]
 name = "embacle-server"
 version = "0.1.0"
 edition = "2021"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 description = "OpenAI-compatible REST API server for embacle LLM runners"
 repository = "https://github.com/dravr-ai/dravr-embacle"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["openai", "llm", "cli", "ai", "rest"]
 categories = ["command-line-utilities", "web-programming::http-server"]
 

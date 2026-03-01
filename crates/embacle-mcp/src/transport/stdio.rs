@@ -1,7 +1,7 @@
 // ABOUTME: Stdio transport reading newline-delimited JSON-RPC from stdin and writing to stdout
 // ABOUTME: Standard MCP transport for integration with editors and CLI tool wrappers
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::sync::Arc;

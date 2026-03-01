@@ -1,7 +1,7 @@
 // ABOUTME: Runner management layer bridging REST handlers to embacle LlmProvider instances
 // ABOUTME: Provides factory creation, provider type parsing, and multiplex fan-out engine
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 pub mod factory;

@@ -1,7 +1,7 @@
 // ABOUTME: Shared server state holding active provider, model, and multiplex configuration
 // ABOUTME: Thread-safe via Arc<RwLock> with lazy runner creation on first use
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::collections::HashMap;

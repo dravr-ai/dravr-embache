@@ -1,7 +1,7 @@
 // ABOUTME: OpenAI-compatible request/response envelope types for the REST API
 // ABOUTME: Maps between OpenAI chat completion format and embacle ChatRequest/ChatResponse
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use serde::{Deserialize, Serialize};

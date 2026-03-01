@@ -1,7 +1,7 @@
 // ABOUTME: Cursor Agent CLI runner implementing the `LlmProvider` trait
 // ABOUTME: Wraps the `cursor-agent` CLI with JSON output parsing and MCP approval
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::any::Any;

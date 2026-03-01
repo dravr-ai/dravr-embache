@@ -1,7 +1,7 @@
 // ABOUTME: Optional bearer token authentication middleware for the REST API
 // ABOUTME: Enforces EMBACLE_API_KEY when set, allows unauthenticated access otherwise
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use axum::extract::Request;

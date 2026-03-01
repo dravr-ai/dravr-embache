@@ -2,7 +2,7 @@
 # ABOUTME: Git commit-msg hook to enforce two-line commit message format
 # ABOUTME: Prevents verbose commit messages and ensures consistency
 #
-# SPDX-License-Identifier: MIT OR Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 dravr.ai
 
 set -e

@@ -1,7 +1,7 @@
 // ABOUTME: CLI entry point for the embacle MCP server binary
 // ABOUTME: Parses arguments, selects transport (stdio or HTTP), and starts serving
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 mod protocol;

@@ -1,7 +1,7 @@
 // ABOUTME: Server state holding default provider and lazily-created runner cache
 // ABOUTME: Stateless per-request routing with no mutable active provider or model
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::collections::HashMap;

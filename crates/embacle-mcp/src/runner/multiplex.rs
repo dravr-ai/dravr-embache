@@ -1,7 +1,7 @@
 // ABOUTME: Multiplex engine that fans out prompts to multiple providers concurrently
 // ABOUTME: Collects per-provider results with timing and produces an aggregated summary
 //
-// SPDX-License-Identifier: MIT OR Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
 use std::sync::Arc;
