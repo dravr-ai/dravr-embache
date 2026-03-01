@@ -1,7 +1,7 @@
 # Embacle — LLM Runners
 
 [![CI](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE.md)
 
 Standalone Rust library that wraps AI CLI tools and SDKs as pluggable LLM providers.
 
