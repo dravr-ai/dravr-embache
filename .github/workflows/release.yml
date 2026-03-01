@@ -1,0 +1,232 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Bump Version & Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      prev_tag: ${{ steps.bump.outputs.prev_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          CURRENT=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          VERSION="${major}.${minor}.${patch}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Bumping ${CURRENT} → ${VERSION}"
+
+          # Previous tag for changelog range
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "prev_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+
+          # Update root crate version (first occurrence only)
+          sed -i "0,/^version = \"${CURRENT}\"/s//version = \"${VERSION}\"/" Cargo.toml
+
+          # Update subcrate package versions
+          sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${VERSION}\"/" crates/embacle-mcp/Cargo.toml
+          sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${VERSION}\"/" crates/embacle-server/Cargo.toml
+
+          # Update dependency version references in subcrates
+          sed -i "s/embacle = { path = \"\.\.\/\.\.\", version = \"[^\"]*\" }/embacle = { path = \"\.\.\/\.\.\", version = \"${VERSION}\" }/" crates/embacle-mcp/Cargo.toml
+          sed -i "s/embacle = { path = \"\.\.\/\.\.\", version = \"[^\"]*\" }/embacle = { path = \"\.\.\/\.\.\", version = \"${VERSION}\" }/" crates/embacle-server/Cargo.toml
+
+      - name: Update lockfile
+        run: cargo generate-lockfile
+
+      - name: Generate changelog
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          PREV_TAG="${{ steps.bump.outputs.prev_tag }}"
+          DATE=$(date +%Y-%m-%d)
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+
+          FEATURES=""
+          FIXES=""
+          OTHER=""
+
+          while IFS= read -r msg; do
+            [ -z "$msg" ] && continue
+            case "$msg" in
+              feat:*|feat\(*) FEATURES="${FEATURES}- ${msg}\n" ;;
+              fix:*|fix\(*)   FIXES="${FIXES}- ${msg}\n" ;;
+              docs:*|chore:*|test:*|ci:*|release:*) ;;
+              *) OTHER="${OTHER}- ${msg}\n" ;;
+            esac
+          done < <(git log "${RANGE}" --pretty=format:"%s" --no-merges)
+
+          BODY=""
+          [ -n "$FEATURES" ] && BODY="${BODY}### Added\n\n${FEATURES}\n"
+          [ -n "$FIXES" ]    && BODY="${BODY}### Fixed\n\n${FIXES}\n"
+          [ -n "$OTHER" ]    && BODY="${BODY}### Other\n\n${OTHER}\n"
+
+          HEADER="## [${VERSION}] — ${DATE}"
+
+          if [ -f CHANGELOG.md ]; then
+            TMPFILE=$(mktemp)
+            echo "# Changelog" > "$TMPFILE"
+            echo "" >> "$TMPFILE"
+            echo "$HEADER" >> "$TMPFILE"
+            echo "" >> "$TMPFILE"
+            echo -e "$BODY" >> "$TMPFILE"
+            tail -n +2 CHANGELOG.md >> "$TMPFILE"
+            mv "$TMPFILE" CHANGELOG.md
+          else
+            {
+              echo "# Changelog"
+              echo ""
+              echo "$HEADER"
+              echo ""
+              echo -e "$BODY"
+            } > CHANGELOG.md
+          fi
+
+      - name: Commit, tag, push
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          git add -A
+          git commit -m "release: v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin main --tags
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-13
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package (Unix)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TARGET="${{ matrix.target }}"
+          DIR="embacle-v${VERSION}-${TARGET}"
+          mkdir "$DIR"
+          cp "target/${TARGET}/release/embacle-mcp" "$DIR/"
+          cp "target/${TARGET}/release/embacle-server" "$DIR/"
+          tar czf "${DIR}.tar.gz" "$DIR"
+
+      - name: Package (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.version.outputs.version }}"
+          $TARGET = "${{ matrix.target }}"
+          $DIR = "embacle-v${VERSION}-${TARGET}"
+          New-Item -ItemType Directory -Path $DIR
+          Copy-Item "target/${TARGET}/release/embacle-mcp.exe" "$DIR/"
+          Copy-Item "target/${TARGET}/release/embacle-server.exe" "$DIR/"
+          Compress-Archive -Path "$DIR/*" -DestinationPath "${DIR}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: embacle-${{ matrix.target }}
+          path: embacle-v*.*
+
+  publish:
+    name: Publish Release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: v${{ needs.version.outputs.version }}
+          body_path: CHANGELOG.md
+          files: artifacts/*
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish -p embacle --allow-dirty
+
+          echo "Waiting for crates.io to index embacle..."
+          sleep 30
+
+          cargo publish -p embacle-mcp --allow-dirty
+          cargo publish -p embacle-server --allow-dirty
