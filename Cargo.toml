@@ -2,7 +2,7 @@
 # ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) and SDKs (Copilot SDK)
 
 [workspace]
-members = [".", "crates/embacle-mcp", "crates/embacle-server"]
+members = [".", "crates/embacle-copilot-sdk", "crates/embacle-mcp", "crates/embacle-server"]
 
 [package]
 name = "embacle"
@@ -34,7 +34,7 @@ tracing = "0.1"
 which = "7"
 
 # Optional: Copilot SDK (persistent JSON-RPC communication with copilot --headless)
-copilot-sdk = { version = "0.1.17", git = "https://github.com/copilot-community-sdk/copilot-sdk-rust.git", rev = "109f234b", optional = true }
+copilot-sdk = { package = "embacle-copilot-sdk", version = "0.0.1", path = "crates/embacle-copilot-sdk", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.45", features = ["full", "test-util"] }
