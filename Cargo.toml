@@ -2,7 +2,7 @@
 # ABOUTME: Wraps CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) and SDKs (Copilot SDK)
 
 [workspace]
-members = [".", "crates/embacle-mcp"]
+members = [".", "crates/embacle-mcp", "crates/embacle-server"]
 
 [package]
 name = "embacle"

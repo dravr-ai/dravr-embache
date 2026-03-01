@@ -1,0 +1,58 @@
+# ABOUTME: OpenAI-compatible REST API server exposing embacle LLM runners
+# ABOUTME: Proxies chat completions to CLI tools via standard HTTP endpoints
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 dravr.ai
+
+[package]
+name = "embacle-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "OpenAI-compatible REST API server for embacle LLM runners"
+repository = "https://github.com/dravr-ai/dravr-embacle"
+readme = "../../README.md"
+keywords = ["openai", "llm", "cli", "ai", "rest"]
+categories = ["command-line-utilities", "web-programming::http-server"]
+
+[lib]
+name = "embacle_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "embacle-server"
+path = "src/main.rs"
+
+[dependencies]
+embacle = { path = "../.." }
+async-trait = "0.1"
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.45", features = ["full"] }
+tokio-stream = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tokio = { version = "1.45", features = ["full", "test-util"] }
+tower = { version = "0.5", features = ["util"] }
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Allow these clippy lints project-wide
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+redundant_pub_crate = "allow"
+multiple_crate_versions = "allow"
