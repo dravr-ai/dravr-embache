@@ -16,6 +16,7 @@ documentation = "https://docs.rs/embacle"
 keywords = ["llm", "cli", "ai", "claude", "copilot"]
 categories = ["command-line-utilities", "api-bindings"]
 readme = "README.md"
+exclude = [".claude/", ".githooks/", ".github/", "scripts/", "AGENTS.md", "crates/"]
 
 [features]
 default = []
