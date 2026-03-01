@@ -142,7 +142,7 @@ jobs:
             os: ubuntu-latest
             archive: tar.gz
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-14
             archive: tar.gz
           - target: aarch64-apple-darwin
             os: macos-latest
@@ -163,7 +163,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --workspace --target ${{ matrix.target }}
 
       - name: Package (Unix)
         if: matrix.archive == 'tar.gz'
