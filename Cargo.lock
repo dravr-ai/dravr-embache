@@ -274,7 +274,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "embacle"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "embacle-copilot-sdk"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "embacle-mcp"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -326,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "embacle-server"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -1209,9 +1209,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.6.0"
+version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af407857209536a95c8e56f8231ef2c2e2aff839b22e07a1ffcbc617e9db9fa5"
+checksum = "5c55a2eff8b69ce66c84f85e1da1c233edc36ceb85a2058d11b0d6a3c7e7569c"
 dependencies = [
  "proc-macro2",
  "quote",

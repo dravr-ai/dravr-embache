@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] — 2026-03-02
+
+### Added
+
+- feat: add Gemini CLI and Codex CLI runners Add GeminiCliRunner and CodexCliRunner with streaming JSONL support, expanding embacle to 6 CLI tools
+
+
+
 ## [0.1.3] — 2026-03-01
 
 
