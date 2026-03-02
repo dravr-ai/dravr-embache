@@ -9,7 +9,10 @@ use std::env;
 use embacle::config::{CliRunnerType, RunnerConfig};
 use embacle::discovery::resolve_binary;
 use embacle::types::{LlmProvider, RunnerError};
-use embacle::{ClaudeCodeRunner, CopilotRunner, CursorAgentRunner, OpenCodeRunner};
+use embacle::{
+    ClaudeCodeRunner, CodexCliRunner, CopilotRunner, CursorAgentRunner, GeminiCliRunner,
+    OpenCodeRunner,
+};
 
 /// Create an `LlmProvider` instance for the given runner type
 ///
@@ -28,6 +31,8 @@ pub fn create_runner(runner_type: CliRunnerType) -> Result<Box<dyn LlmProvider>,
         CliRunnerType::Copilot => Box::new(CopilotRunner::new(config)),
         CliRunnerType::CursorAgent => Box::new(CursorAgentRunner::new(config)),
         CliRunnerType::OpenCode => Box::new(OpenCodeRunner::new(config)),
+        CliRunnerType::GeminiCli => Box::new(GeminiCliRunner::new(config)),
+        CliRunnerType::CodexCli => Box::new(CodexCliRunner::new(config)),
     };
 
     Ok(runner)

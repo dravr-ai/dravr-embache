@@ -15,6 +15,8 @@ pub const ALL_PROVIDERS: &[CliRunnerType] = &[
     CliRunnerType::Copilot,
     CliRunnerType::CursorAgent,
     CliRunnerType::OpenCode,
+    CliRunnerType::GeminiCli,
+    CliRunnerType::CodexCli,
 ];
 
 /// Parse a provider name string into a `CliRunnerType`
@@ -27,13 +29,15 @@ pub fn parse_runner_type(s: &str) -> Option<CliRunnerType> {
         "copilot" => Some(CliRunnerType::Copilot),
         "cursor_agent" | "cursoragent" | "cursor-agent" => Some(CliRunnerType::CursorAgent),
         "opencode" | "open_code" => Some(CliRunnerType::OpenCode),
+        "gemini" | "gemini_cli" | "geminicli" | "gemini-cli" => Some(CliRunnerType::GeminiCli),
+        "codex" | "codex_cli" | "codexcli" | "codex-cli" => Some(CliRunnerType::CodexCli),
         _ => None,
     }
 }
 
 /// Format the list of valid provider names for error messages
 pub const fn valid_provider_names() -> &'static str {
-    "claude_code, copilot, cursor_agent, opencode"
+    "claude_code, copilot, cursor_agent, opencode, gemini_cli, codex_cli"
 }
 
 #[cfg(test)]
@@ -52,6 +56,14 @@ mod tests {
             Some(CliRunnerType::CursorAgent)
         );
         assert_eq!(parse_runner_type("opencode"), Some(CliRunnerType::OpenCode));
+        assert_eq!(
+            parse_runner_type("gemini_cli"),
+            Some(CliRunnerType::GeminiCli)
+        );
+        assert_eq!(
+            parse_runner_type("codex_cli"),
+            Some(CliRunnerType::CodexCli)
+        );
     }
 
     #[test]
@@ -61,6 +73,8 @@ mod tests {
             parse_runner_type("cursor-agent"),
             Some(CliRunnerType::CursorAgent)
         );
+        assert_eq!(parse_runner_type("gemini"), Some(CliRunnerType::GeminiCli));
+        assert_eq!(parse_runner_type("codex"), Some(CliRunnerType::CodexCli));
     }
 
     #[test]
@@ -79,7 +93,7 @@ mod tests {
     }
 
     #[test]
-    fn all_providers_has_four_entries() {
-        assert_eq!(ALL_PROVIDERS.len(), 4);
+    fn all_providers_has_six_entries() {
+        assert_eq!(ALL_PROVIDERS.len(), 6);
     }
 }
