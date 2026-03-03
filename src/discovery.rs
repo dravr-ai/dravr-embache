@@ -20,11 +20,14 @@ const DISCOVERY_ORDER: &[CliRunnerType] = &[
     CliRunnerType::OpenCode,
     CliRunnerType::GeminiCli,
     CliRunnerType::CodexCli,
+    CliRunnerType::GooseCli,
+    CliRunnerType::ClineCli,
+    CliRunnerType::ContinueCli,
 ];
 
 /// Discover the first available CLI runner on the system
 ///
-/// Probes runners in priority order: Claude Code → Copilot → Cursor Agent → `OpenCode` → Gemini → Codex.
+/// Probes runners in priority order: Claude Code → Copilot → Cursor Agent → `OpenCode` → Gemini → Codex → Goose → Cline → Continue.
 /// Returns a `RunnerConfig` for the first binary found on `PATH` or via its
 /// environment-variable override.
 ///
@@ -55,7 +58,7 @@ pub fn discover_runner() -> Result<(CliRunnerType, RunnerConfig), RunnerError> {
     }
 
     Err(RunnerError::internal(
-        "No CLI runner found. Install one of: claude, copilot, cursor-agent, opencode, gemini, codex",
+        "No CLI runner found. Install one of: claude, copilot, cursor-agent, opencode, gemini, codex, goose, cline, cn",
     ))
 }
 

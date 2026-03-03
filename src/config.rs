@@ -28,6 +28,12 @@ pub enum CliRunnerType {
     GeminiCli,
     /// Codex CLI (`codex`)
     CodexCli,
+    /// Goose CLI (`goose`)
+    GooseCli,
+    /// Cline CLI (`cline`)
+    ClineCli,
+    /// Continue CLI (`cn`)
+    ContinueCli,
 }
 
 impl CliRunnerType {
@@ -41,6 +47,9 @@ impl CliRunnerType {
             Self::Copilot => "copilot",
             Self::GeminiCli => "gemini",
             Self::CodexCli => "codex",
+            Self::GooseCli => "goose",
+            Self::ClineCli => "cline",
+            Self::ContinueCli => "cn",
         }
     }
 
@@ -54,6 +63,9 @@ impl CliRunnerType {
             Self::Copilot => "COPILOT_BINARY",
             Self::GeminiCli => "GEMINI_CLI_BINARY",
             Self::CodexCli => "CODEX_CLI_BINARY",
+            Self::GooseCli => "GOOSE_CLI_BINARY",
+            Self::ClineCli => "CLINE_CLI_BINARY",
+            Self::ContinueCli => "CONTINUE_CLI_BINARY",
         }
     }
 }
@@ -67,6 +79,9 @@ impl fmt::Display for CliRunnerType {
             Self::Copilot => write!(f, "copilot"),
             Self::GeminiCli => write!(f, "gemini_cli"),
             Self::CodexCli => write!(f, "codex_cli"),
+            Self::GooseCli => write!(f, "goose_cli"),
+            Self::ClineCli => write!(f, "cline_cli"),
+            Self::ContinueCli => write!(f, "continue_cli"),
         }
     }
 }
@@ -252,6 +267,9 @@ mod tests {
         assert_eq!(CliRunnerType::Copilot.binary_name(), "copilot");
         assert_eq!(CliRunnerType::GeminiCli.binary_name(), "gemini");
         assert_eq!(CliRunnerType::CodexCli.binary_name(), "codex");
+        assert_eq!(CliRunnerType::GooseCli.binary_name(), "goose");
+        assert_eq!(CliRunnerType::ClineCli.binary_name(), "cline");
+        assert_eq!(CliRunnerType::ContinueCli.binary_name(), "cn");
     }
 
     #[test]
@@ -269,6 +287,18 @@ mod tests {
             CliRunnerType::CodexCli.env_override_key(),
             "CODEX_CLI_BINARY"
         );
+        assert_eq!(
+            CliRunnerType::GooseCli.env_override_key(),
+            "GOOSE_CLI_BINARY"
+        );
+        assert_eq!(
+            CliRunnerType::ClineCli.env_override_key(),
+            "CLINE_CLI_BINARY"
+        );
+        assert_eq!(
+            CliRunnerType::ContinueCli.env_override_key(),
+            "CONTINUE_CLI_BINARY"
+        );
     }
 
     #[test]
@@ -279,5 +309,8 @@ mod tests {
         assert_eq!(format!("{}", CliRunnerType::OpenCode), "opencode");
         assert_eq!(format!("{}", CliRunnerType::GeminiCli), "gemini_cli");
         assert_eq!(format!("{}", CliRunnerType::CodexCli), "codex_cli");
+        assert_eq!(format!("{}", CliRunnerType::GooseCli), "goose_cli");
+        assert_eq!(format!("{}", CliRunnerType::ClineCli), "cline_cli");
+        assert_eq!(format!("{}", CliRunnerType::ContinueCli), "continue_cli");
     }
 }

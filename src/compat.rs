@@ -21,6 +21,9 @@ const CURSOR_AGENT_MIN_VERSION: &str = "0.1.0";
 const OPENCODE_MIN_VERSION: &str = "0.1.0";
 const GEMINI_CLI_MIN_VERSION: &str = "0.1.0";
 const CODEX_CLI_MIN_VERSION: &str = "0.1.0";
+const GOOSE_CLI_MIN_VERSION: &str = "1.0.0";
+const CLINE_CLI_MIN_VERSION: &str = "2.0.0";
+const CONTINUE_CLI_MIN_VERSION: &str = "1.0.0";
 
 /// Detected capabilities of a CLI runner binary
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,7 +109,10 @@ async fn detect_version(
         | CliRunnerType::Copilot
         | CliRunnerType::CursorAgent
         | CliRunnerType::GeminiCli
-        | CliRunnerType::CodexCli => "--version",
+        | CliRunnerType::CodexCli
+        | CliRunnerType::GooseCli
+        | CliRunnerType::ClineCli
+        | CliRunnerType::ContinueCli => "--version",
     };
 
     let output = Command::new(binary_path)
@@ -171,6 +177,9 @@ const fn minimum_version(runner_type: CliRunnerType) -> (u32, u32, u32) {
         CliRunnerType::OpenCode => parse_const_version(OPENCODE_MIN_VERSION),
         CliRunnerType::GeminiCli => parse_const_version(GEMINI_CLI_MIN_VERSION),
         CliRunnerType::CodexCli => parse_const_version(CODEX_CLI_MIN_VERSION),
+        CliRunnerType::GooseCli => parse_const_version(GOOSE_CLI_MIN_VERSION),
+        CliRunnerType::ClineCli => parse_const_version(CLINE_CLI_MIN_VERSION),
+        CliRunnerType::ContinueCli => parse_const_version(CONTINUE_CLI_MIN_VERSION),
     }
 }
 
@@ -221,11 +230,13 @@ const fn capabilities_for_runner(runner_type: CliRunnerType) -> (bool, bool, boo
         CliRunnerType::ClaudeCode => (true, true, true, true),
         // Copilot: plain text output, line-by-line streaming, no --system-prompt, no session resume
         CliRunnerType::Copilot => (false, true, false, false),
-        // Cursor Agent: --output-format json, --output-format stream-json, --resume
-        // Gemini CLI: -o json, -o stream-json, --resume
-        CliRunnerType::CursorAgent | CliRunnerType::GeminiCli => (true, true, false, true),
-        // OpenCode: --format json, --continue/--session
-        CliRunnerType::OpenCode => (true, false, false, true),
+        // Cursor Agent, Gemini CLI, Goose CLI, Cline CLI: JSON + streaming, no system prompt, session resume
+        CliRunnerType::CursorAgent
+        | CliRunnerType::GeminiCli
+        | CliRunnerType::GooseCli
+        | CliRunnerType::ClineCli => (true, true, false, true),
+        // OpenCode, Continue CLI: JSON output, no streaming, session resume
+        CliRunnerType::OpenCode | CliRunnerType::ContinueCli => (true, false, false, true),
         // Codex CLI: --json (JSONL), streaming via JSONL events
         CliRunnerType::CodexCli => (true, true, false, false),
     }
@@ -344,6 +355,33 @@ mod tests {
         assert!(stream);
         assert!(!sys);
         assert!(!resume);
+    }
+
+    #[test]
+    fn test_capabilities_goose_cli() {
+        let (json, stream, sys, resume) = capabilities_for_runner(CliRunnerType::GooseCli);
+        assert!(json);
+        assert!(stream);
+        assert!(!sys);
+        assert!(resume);
+    }
+
+    #[test]
+    fn test_capabilities_cline_cli() {
+        let (json, stream, sys, resume) = capabilities_for_runner(CliRunnerType::ClineCli);
+        assert!(json);
+        assert!(stream);
+        assert!(!sys);
+        assert!(resume);
+    }
+
+    #[test]
+    fn test_capabilities_continue_cli() {
+        let (json, stream, sys, resume) = capabilities_for_runner(CliRunnerType::ContinueCli);
+        assert!(json);
+        assert!(!stream);
+        assert!(!sys);
+        assert!(resume);
     }
 
     #[test]

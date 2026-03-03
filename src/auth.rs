@@ -96,6 +96,9 @@ pub async fn check_readiness(
         CliRunnerType::OpenCode => check_version_probe(binary_path, "opencode").await,
         CliRunnerType::GeminiCli => check_version_probe(binary_path, "gemini").await,
         CliRunnerType::CodexCli => check_version_probe(binary_path, "codex").await,
+        CliRunnerType::GooseCli => check_version_probe(binary_path, "goose").await,
+        CliRunnerType::ClineCli => check_version_probe(binary_path, "cline").await,
+        CliRunnerType::ContinueCli => check_version_probe(binary_path, "cn").await,
     }
 }
 

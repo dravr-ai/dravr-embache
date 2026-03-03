@@ -17,6 +17,9 @@ pub const ALL_PROVIDERS: &[CliRunnerType] = &[
     CliRunnerType::OpenCode,
     CliRunnerType::GeminiCli,
     CliRunnerType::CodexCli,
+    CliRunnerType::GooseCli,
+    CliRunnerType::ClineCli,
+    CliRunnerType::ContinueCli,
 ];
 
 /// Parse a provider name string into a `CliRunnerType`
@@ -31,13 +34,18 @@ pub fn parse_runner_type(s: &str) -> Option<CliRunnerType> {
         "opencode" | "open_code" => Some(CliRunnerType::OpenCode),
         "gemini" | "gemini_cli" | "geminicli" | "gemini-cli" => Some(CliRunnerType::GeminiCli),
         "codex" | "codex_cli" | "codexcli" | "codex-cli" => Some(CliRunnerType::CodexCli),
+        "goose" | "goose_cli" | "goosecli" | "goose-cli" => Some(CliRunnerType::GooseCli),
+        "cline" | "cline_cli" | "clinecli" | "cline-cli" => Some(CliRunnerType::ClineCli),
+        "continue" | "continue_cli" | "continuecli" | "continue-cli" | "cn" => {
+            Some(CliRunnerType::ContinueCli)
+        }
         _ => None,
     }
 }
 
 /// Format the list of valid provider names for error messages
 pub const fn valid_provider_names() -> &'static str {
-    "claude_code, copilot, cursor_agent, opencode, gemini_cli, codex_cli"
+    "claude_code, copilot, cursor_agent, opencode, gemini_cli, codex_cli, goose_cli, cline_cli, continue_cli"
 }
 
 #[cfg(test)]
@@ -64,6 +72,18 @@ mod tests {
             parse_runner_type("codex_cli"),
             Some(CliRunnerType::CodexCli)
         );
+        assert_eq!(
+            parse_runner_type("goose_cli"),
+            Some(CliRunnerType::GooseCli)
+        );
+        assert_eq!(
+            parse_runner_type("cline_cli"),
+            Some(CliRunnerType::ClineCli)
+        );
+        assert_eq!(
+            parse_runner_type("continue_cli"),
+            Some(CliRunnerType::ContinueCli)
+        );
     }
 
     #[test]
@@ -75,6 +95,13 @@ mod tests {
         );
         assert_eq!(parse_runner_type("gemini"), Some(CliRunnerType::GeminiCli));
         assert_eq!(parse_runner_type("codex"), Some(CliRunnerType::CodexCli));
+        assert_eq!(parse_runner_type("goose"), Some(CliRunnerType::GooseCli));
+        assert_eq!(parse_runner_type("cline"), Some(CliRunnerType::ClineCli));
+        assert_eq!(
+            parse_runner_type("continue"),
+            Some(CliRunnerType::ContinueCli)
+        );
+        assert_eq!(parse_runner_type("cn"), Some(CliRunnerType::ContinueCli));
     }
 
     #[test]
@@ -93,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn all_providers_has_six_entries() {
-        assert_eq!(ALL_PROVIDERS.len(), 6);
+    fn all_providers_has_nine_entries() {
+        assert_eq!(ALL_PROVIDERS.len(), 9);
     }
 }

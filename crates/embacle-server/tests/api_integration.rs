@@ -86,7 +86,7 @@ async fn health_returns_json_with_status_field() {
 }
 
 #[tokio::test]
-async fn health_providers_contains_all_six() {
+async fn health_providers_contains_all_nine() {
     let app = test_app();
 
     let response = app
@@ -108,7 +108,7 @@ async fn health_providers_contains_all_six() {
     let json: serde_json::Value = serde_json::from_slice(&bytes).expect("parse json");
 
     let providers = json["providers"].as_object().expect("providers is object");
-    assert_eq!(providers.len(), 6, "expected 6 providers");
+    assert_eq!(providers.len(), 9, "expected 9 providers");
 
     // Each provider should have a status string
     for (name, value) in providers {
