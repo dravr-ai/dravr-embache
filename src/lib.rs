@@ -1,5 +1,5 @@
 // ABOUTME: Standalone LLM runner library wrapping AI CLI tools and SDKs as providers
-// ABOUTME: Re-exports runners for Claude Code, Copilot, Cursor Agent, OpenCode, Gemini, Codex, Goose, Cline, Continue, and Copilot SDK
+// ABOUTME: Re-exports runners, agent loop, fallback chains, metrics, quality gates, MCP bridge, and structured output
 //
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
@@ -35,6 +35,12 @@
 //!
 //! - [`types`] — Core types: `LlmProvider` trait, messages, requests, errors
 //! - [`config`] — Runner types and configuration
+//! - [`agent`] — Configurable agent loop with multi-turn tool calling
+//! - [`fallback`] — Provider fallback chains (try providers in order)
+//! - [`mcp_tool_bridge`] — MCP tool definition to text-tool-simulation bridge
+//! - [`metrics`] — Cost/latency normalization decorator
+//! - [`quality_gate`] — Response quality validation with retry
+//! - [`structured_output`] — Schema-enforced JSON output from any provider
 //! - [`compat`] — Version compatibility and capability detection
 //! - [`container`] — Container-based execution backend
 //! - [`discovery`] — Automatic binary detection on the host
@@ -56,6 +62,8 @@
 /// Core types: traits, messages, requests, responses, and errors
 pub mod types;
 
+/// Configurable agent loop with multi-turn tool calling
+pub mod agent;
 /// Auth readiness checking for CLI runners
 pub mod auth;
 /// Claude Code CLI runner
@@ -78,20 +86,30 @@ pub mod copilot;
 pub mod cursor_agent;
 /// Binary auto-detection and discovery
 pub mod discovery;
+/// Provider fallback chains
+pub mod fallback;
 /// Gemini CLI runner
 pub mod gemini_cli;
 /// Goose CLI runner
 pub mod goose_cli;
+/// MCP tool definition to text-tool-simulation bridge
+pub mod mcp_tool_bridge;
+/// Cost/latency normalization decorator
+pub mod metrics;
 /// `OpenCode` CLI runner
 pub mod opencode;
 /// Subprocess spawning with safety limits
 pub mod process;
 /// Prompt construction from `ChatMessage` sequences
 pub mod prompt;
+/// Response quality validation with retry
+pub mod quality_gate;
 /// Environment sandboxing and tool policy
 pub mod sandbox;
 /// Stream wrapper for child process lifecycle management
 pub mod stream;
+/// Schema-enforced JSON output from any provider
+pub mod structured_output;
 /// Text-based tool simulation for CLI runners without native function calling
 pub mod tool_simulation;
 
@@ -107,6 +125,7 @@ pub mod copilot_sdk_runner;
 pub mod tool_bridge;
 
 // Re-export the runner structs for ergonomic access
+pub use agent::{AgentExecutor, AgentResult, OnTurnCallback, TurnInfo};
 pub use auth::ProviderReadiness;
 pub use claude_code::ClaudeCodeRunner;
 pub use cline_cli::ClineCliRunner;
@@ -118,9 +137,14 @@ pub use continue_cli::ContinueCliRunner;
 pub use copilot::CopilotRunner;
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
+pub use fallback::FallbackProvider;
 pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
+pub use mcp_tool_bridge::{McpToolDefinition, McpToolExecutor};
+pub use metrics::{MetricsProvider, MetricsReport};
 pub use opencode::OpenCodeRunner;
+pub use quality_gate::{QualityGateProvider, QualityPolicy};
+pub use structured_output::{request_structured_output, StructuredOutputRequest};
 
 // Tool simulation re-exports
 pub use tool_simulation::{
