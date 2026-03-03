@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] — 2026-03-03
+
+### Added
+
+- feat: add agent loop, fallback chains, metrics, quality gate, MCP bridge, and structured output
+- feat: add Goose, Cline, and Continue CLI runners Expand embacle from 6 to 9 CLI runners with JSON parsing, session resume, and streaming
+
+### Fixed
+
+- fix: restore trailing newlines stripped by LinesStream in SSE deltas
+
+
+
 ## [0.2.1] — 2026-03-02
 
 ### Added
