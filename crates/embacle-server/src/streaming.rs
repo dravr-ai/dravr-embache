@@ -55,6 +55,18 @@ pub fn sse_response(stream: ChatStream, model: &str) -> Response {
                         (None, Some(chunk.delta), None)
                     };
 
+                    // LinesStream strips trailing \n from each line. Restore it
+                    // so concatenated SSE deltas preserve original line breaks.
+                    let content = content.map(|c| {
+                        if !c.is_empty() && !c.ends_with('\n') {
+                            let mut normalized = c;
+                            normalized.push('\n');
+                            normalized
+                        } else {
+                            c
+                        }
+                    });
+
                     let data = ChatCompletionChunk {
                         id: completion_id.clone(),
                         object: "chat.completion.chunk",
