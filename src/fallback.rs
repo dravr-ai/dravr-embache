@@ -13,8 +13,6 @@
 //! Health checks pass if ANY provider is healthy. Capabilities are the
 //! bitwise OR of all inner providers.
 
-use std::any::Any;
-
 use async_trait::async_trait;
 use tracing::warn;
 
@@ -143,10 +141,6 @@ impl LlmProvider for FallbackProvider {
         }
         Ok(false)
     }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 #[cfg(test)]
@@ -233,9 +227,6 @@ mod tests {
         }
         async fn health_check(&self) -> Result<bool, RunnerError> {
             Ok(self.healthy)
-        }
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 

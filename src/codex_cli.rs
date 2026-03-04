@@ -4,14 +4,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
-use std::any::Any;
-use std::collections::HashMap;
 use std::io;
 use std::process::Stdio;
 use std::str;
-use std::sync::Arc;
-use std::time::Duration;
 
+use crate::cli_common::{CliRunnerBase, MAX_OUTPUT_BYTES};
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, RunnerError, StreamChunk,
     TokenUsage,
@@ -19,25 +16,15 @@ use crate::types::{
 use async_trait::async_trait;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::Mutex;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, instrument, warn};
+use tracing::instrument;
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
 use crate::prompt::build_user_prompt;
 use crate::sandbox::{apply_sandbox, build_policy};
 use crate::stream::{GuardedStream, MAX_STREAMING_STDERR_BYTES};
-
-/// Maximum output size for a single Codex CLI invocation (50 MiB)
-const MAX_OUTPUT_BYTES: usize = 50 * 1024 * 1024;
-
-/// Health check timeout (10 seconds)
-const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Health check output limit (4 KiB)
-const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 
 /// Default model for Codex CLI
 const DEFAULT_MODEL: &str = "o4-mini";
@@ -51,54 +38,43 @@ const FALLBACK_MODELS: &[&str] = &["o4-mini", "o3", "gpt-4.1"];
 /// `exec` subcommand for non-interactive mode. Uses `--json` for JSONL
 /// output and `--full-auto` for automatic sandbox approval.
 pub struct CodexCliRunner {
-    config: RunnerConfig,
-    default_model: String,
-    available_models: Vec<String>,
-    session_ids: Arc<Mutex<HashMap<String, String>>>,
+    base: CliRunnerBase,
 }
 
 impl CodexCliRunner {
     /// Create a new Codex CLI runner with the given configuration
     #[must_use]
     pub fn new(config: RunnerConfig) -> Self {
-        let default_model = config
-            .model
-            .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
-        let available_models = FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect();
         Self {
-            config,
-            default_model,
-            available_models,
-            session_ids: Arc::new(Mutex::new(HashMap::new())),
+            base: CliRunnerBase::new(config, DEFAULT_MODEL, FALLBACK_MODELS),
         }
     }
 
     /// Store a session ID for later resumption
     pub async fn set_session(&self, key: &str, session_id: &str) {
-        let mut sessions = self.session_ids.lock().await;
-        sessions.insert(key.to_owned(), session_id.to_owned());
+        self.base.set_session(key, session_id).await;
     }
 
     /// Build the base command with common arguments
     fn build_command(&self, prompt: &str) -> Command {
-        let mut cmd = Command::new(&self.config.binary_path);
+        let mut cmd = Command::new(&self.base.config.binary_path);
         cmd.args(["exec", prompt, "--json", "--full-auto"]);
 
         let model = self
+            .base
             .config
             .model
             .as_deref()
-            .unwrap_or_else(|| self.default_model());
+            .unwrap_or_else(|| self.base.default_model());
         cmd.args(["-m", model]);
 
-        for arg in &self.config.extra_args {
+        for arg in &self.base.config.extra_args {
             cmd.arg(arg);
         }
 
         if let Ok(policy) = build_policy(
-            self.config.working_directory.as_deref(),
-            &self.config.allowed_env_keys,
+            self.base.config.working_directory.as_deref(),
+            &self.base.config.allowed_env_keys,
         ) {
             apply_sandbox(&mut cmd, &policy);
         }
@@ -178,50 +154,15 @@ impl CodexCliRunner {
 
 #[async_trait]
 impl LlmProvider for CodexCliRunner {
-    fn name(&self) -> &'static str {
-        "codex"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "Codex CLI"
-    }
-
-    fn capabilities(&self) -> LlmCapabilities {
-        LlmCapabilities::STREAMING
-    }
-
-    fn default_model(&self) -> &str {
-        &self.default_model
-    }
-
-    fn available_models(&self) -> &[String] {
-        &self.available_models
-    }
+    crate::delegate_provider_base!("codex", "Codex CLI", LlmCapabilities::STREAMING);
 
     #[instrument(skip_all, fields(runner = "codex"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         let prompt = build_user_prompt(&request.messages);
         let mut cmd = self.build_command(&prompt);
 
-        let output = run_cli_command(&mut cmd, self.config.timeout, MAX_OUTPUT_BYTES).await?;
-
-        if output.exit_code != 0 {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            warn!(
-                exit_code = output.exit_code,
-                stdout_len = output.stdout.len(),
-                stderr_len = output.stderr.len(),
-                stdout_preview = %stdout.chars().take(500).collect::<String>(),
-                stderr_preview = %stderr.chars().take(500).collect::<String>(),
-                "Codex CLI failed"
-            );
-            let detail = if stderr.is_empty() { &stdout } else { &stderr };
-            return Err(RunnerError::external_service(
-                "codex",
-                format!("codex exited with code {}: {detail}", output.exit_code),
-            ));
-        }
+        let output = run_cli_command(&mut cmd, self.base.config.timeout, MAX_OUTPUT_BYTES).await?;
+        self.base.check_exit_code(&output, "codex")?;
 
         Self::parse_jsonl_response(&output.stdout)
     }
@@ -307,29 +248,6 @@ impl LlmProvider for CodexCliRunner {
         });
 
         Ok(Box::pin(GuardedStream::new(stream, child, stderr_task)))
-    }
-
-    async fn health_check(&self) -> Result<bool, RunnerError> {
-        let mut cmd = Command::new(&self.config.binary_path);
-        cmd.arg("--version");
-
-        let output =
-            run_cli_command(&mut cmd, HEALTH_CHECK_TIMEOUT, HEALTH_CHECK_MAX_OUTPUT).await?;
-
-        if output.exit_code == 0 {
-            debug!("Codex CLI health check passed");
-            Ok(true)
-        } else {
-            warn!(
-                exit_code = output.exit_code,
-                "Codex CLI health check failed"
-            );
-            Ok(false)
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

@@ -13,7 +13,6 @@
 //! Token estimation: when `TokenUsage` is not provided by the inner provider,
 //! tokens are estimated at ~4 characters per token.
 
-use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -196,10 +195,6 @@ impl LlmProvider for MetricsProvider {
     async fn health_check(&self) -> Result<bool, RunnerError> {
         self.inner.health_check().await
     }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 /// Estimate prompt tokens from request messages
@@ -274,9 +269,6 @@ mod tests {
 
         async fn health_check(&self) -> Result<bool, RunnerError> {
             Ok(true)
-        }
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 

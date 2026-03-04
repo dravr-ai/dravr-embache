@@ -16,67 +16,13 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 
+use crate::copilot::{copilot_fallback_models, discover_copilot_models};
 use crate::copilot_sdk_config::CopilotSdkConfig;
-use std::any::Any;
 
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, MessageRole, RunnerError,
     StreamChunk, TokenUsage,
 };
-
-/// Fallback model list when `gh copilot models` discovery fails
-const FALLBACK_MODELS: &[&str] = &[
-    "claude-sonnet-4.6",
-    "claude-opus-4.6",
-    "gpt-5.2-codex",
-    "gpt-5.2",
-    "gpt-5.1-codex",
-    "gpt-5.1",
-    "gpt-5-mini",
-    "gpt-4.1",
-    "gemini-3-pro-preview",
-];
-
-/// Discover available Copilot models by running `gh copilot models`.
-///
-/// Uses a blocking subprocess call (safe at construction time before the async
-/// runtime is saturated). Returns `None` if `gh` is not found, the command
-/// fails, or the output cannot be parsed into a non-empty model list.
-fn discover_copilot_models_sync() -> Option<Vec<String>> {
-    let output = std::process::Command::new("gh")
-        .args(["copilot", "models"])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        debug!(
-            exit_code = output.status.code().unwrap_or(-1),
-            "gh copilot models failed, falling back to static list"
-        );
-        return None;
-    }
-
-    let stdout = std::str::from_utf8(&output.stdout).ok()?;
-    let models: Vec<String> = stdout
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(ToOwned::to_owned)
-        .collect();
-
-    if models.is_empty() {
-        debug!("gh copilot models returned empty output, falling back to static list");
-        return None;
-    }
-
-    debug!(
-        count = models.len(),
-        "Discovered available Copilot SDK models via gh copilot models"
-    );
-    Some(models)
-}
 
 /// GitHub Copilot SDK-based LLM provider.
 ///
@@ -94,10 +40,10 @@ impl CopilotSdkRunner {
     ///
     /// Attempts to discover available models via `gh copilot models`.
     /// Falls back to a static list if discovery fails.
-    #[must_use]
-    pub fn from_env() -> Self {
-        let available_models = discover_copilot_models_sync()
-            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
+    pub async fn from_env() -> Self {
+        let available_models = discover_copilot_models()
+            .await
+            .unwrap_or_else(copilot_fallback_models);
         Self {
             config: CopilotSdkConfig::from_env(),
             available_models,
@@ -109,10 +55,10 @@ impl CopilotSdkRunner {
     ///
     /// Attempts to discover available models via `gh copilot models`.
     /// Falls back to a static list if discovery fails.
-    #[must_use]
-    pub fn with_config(config: CopilotSdkConfig) -> Self {
-        let available_models = discover_copilot_models_sync()
-            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
+    pub async fn with_config(config: CopilotSdkConfig) -> Self {
+        let available_models = discover_copilot_models()
+            .await
+            .unwrap_or_else(copilot_fallback_models);
         Self {
             config,
             available_models,
@@ -483,10 +429,6 @@ impl LlmProvider for CopilotSdkRunner {
                 Ok(false)
             }
         }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }
 

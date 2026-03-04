@@ -18,7 +18,13 @@ use embacle::{
 ///
 /// Resolves the CLI binary via environment variable override or PATH lookup,
 /// then constructs the appropriate runner with default configuration.
-pub fn create_runner(runner_type: CliRunnerType) -> Result<Box<dyn LlmProvider>, RunnerError> {
+///
+/// # Errors
+///
+/// Returns [`RunnerError`] if the CLI binary cannot be found.
+pub async fn create_runner(
+    runner_type: CliRunnerType,
+) -> Result<Box<dyn LlmProvider>, RunnerError> {
     let binary_name = runner_type.binary_name();
     let env_key = runner_type.env_override_key();
     let env_override = env::var(env_key).ok();
@@ -28,7 +34,7 @@ pub fn create_runner(runner_type: CliRunnerType) -> Result<Box<dyn LlmProvider>,
 
     let runner: Box<dyn LlmProvider> = match runner_type {
         CliRunnerType::ClaudeCode => Box::new(ClaudeCodeRunner::new(config)),
-        CliRunnerType::Copilot => Box::new(CopilotRunner::new(config)),
+        CliRunnerType::Copilot => Box::new(CopilotRunner::new(config).await),
         CliRunnerType::CursorAgent => Box::new(CursorAgentRunner::new(config)),
         CliRunnerType::OpenCode => Box::new(OpenCodeRunner::new(config)),
         CliRunnerType::GeminiCli => Box::new(GeminiCliRunner::new(config)),

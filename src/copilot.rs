@@ -4,12 +4,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
-use std::any::Any;
 use std::io;
 use std::process::Stdio;
 use std::str;
-use std::time::Duration;
 
+use crate::cli_common::{CliRunnerBase, MAX_OUTPUT_BYTES};
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, RunnerError, StreamChunk,
 };
@@ -18,22 +17,13 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument};
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
 use crate::prompt::build_prompt;
 use crate::sandbox::{apply_sandbox, build_policy};
 use crate::stream::{GuardedStream, MAX_STREAMING_STDERR_BYTES};
-
-/// Maximum output size for a single Copilot CLI invocation (50 MiB)
-const MAX_OUTPUT_BYTES: usize = 50 * 1024 * 1024;
-
-/// Health check timeout (10 seconds)
-const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Health check output limit (4 KiB)
-const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 
 /// Default model for Copilot CLI
 const DEFAULT_MODEL: &str = "claude-opus-4.6";
@@ -57,15 +47,15 @@ const FALLBACK_MODELS: &[&str] = &[
 
 /// Discover available Copilot models by running `gh copilot models`.
 ///
-/// Uses a blocking subprocess call (safe at construction time before the async
-/// runtime is saturated). Returns `None` if `gh` is not found, the command
-/// fails, or the output cannot be parsed into a non-empty model list.
-fn discover_copilot_models_sync() -> Option<Vec<String>> {
-    let output = std::process::Command::new("gh")
+/// Returns `None` if `gh` is not found, the command fails, or the output
+/// cannot be parsed into a non-empty model list.
+pub async fn discover_copilot_models() -> Option<Vec<String>> {
+    let output = Command::new("gh")
         .args(["copilot", "models"])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .output()
+        .await
         .ok()?;
 
     if !output.status.success() {
@@ -96,6 +86,13 @@ fn discover_copilot_models_sync() -> Option<Vec<String>> {
     Some(models)
 }
 
+/// Fallback model list when `gh copilot models` discovery fails.
+///
+/// Used by both `CopilotRunner` and `CopilotSdkRunner`.
+pub fn copilot_fallback_models() -> Vec<String> {
+    FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect()
+}
+
 /// GitHub Copilot CLI runner
 ///
 /// Implements `LlmProvider` by delegating to the `copilot` binary in
@@ -104,9 +101,7 @@ fn discover_copilot_models_sync() -> Option<Vec<String>> {
 /// System messages are embedded into the user prompt since Copilot CLI
 /// has no `--system-prompt` flag.
 pub struct CopilotRunner {
-    config: RunnerConfig,
-    default_model: String,
-    available_models: Vec<String>,
+    base: CliRunnerBase,
 }
 
 impl CopilotRunner {
@@ -114,33 +109,27 @@ impl CopilotRunner {
     ///
     /// Attempts to discover available models by running `gh copilot models`.
     /// Falls back to a static list if discovery fails.
-    #[must_use]
-    pub fn new(config: RunnerConfig) -> Self {
-        let default_model = config
-            .model
-            .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
-        let available_models = discover_copilot_models_sync()
-            .unwrap_or_else(|| FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect());
-        Self {
-            config,
-            default_model,
-            available_models,
+    pub async fn new(config: RunnerConfig) -> Self {
+        let mut base = CliRunnerBase::new(config, DEFAULT_MODEL, FALLBACK_MODELS);
+        if let Some(models) = discover_copilot_models().await {
+            base.available_models = models;
         }
+        Self { base }
     }
 
     /// Build the base command with common arguments
     fn build_command(&self, prompt: &str, silent: bool) -> Command {
-        let mut cmd = Command::new(&self.config.binary_path);
+        let mut cmd = Command::new(&self.base.config.binary_path);
 
         // Non-interactive prompt mode
         cmd.args(["-p", prompt]);
 
         let model = self
+            .base
             .config
             .model
             .as_deref()
-            .unwrap_or_else(|| self.default_model());
+            .unwrap_or_else(|| self.base.default_model());
         cmd.args(["--model", model]);
 
         // Required for non-interactive mode
@@ -163,13 +152,13 @@ impl CopilotRunner {
             cmd.arg("-s");
         }
 
-        for arg in &self.config.extra_args {
+        for arg in &self.base.config.extra_args {
             cmd.arg(arg);
         }
 
         if let Ok(policy) = build_policy(
-            self.config.working_directory.as_deref(),
-            &self.config.allowed_env_keys,
+            self.base.config.working_directory.as_deref(),
+            &self.base.config.allowed_env_keys,
         ) {
             apply_sandbox(&mut cmd, &policy);
         }
@@ -198,53 +187,18 @@ impl CopilotRunner {
 
 #[async_trait]
 impl LlmProvider for CopilotRunner {
-    fn name(&self) -> &'static str {
-        "copilot"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "GitHub Copilot CLI"
-    }
-
-    fn capabilities(&self) -> LlmCapabilities {
-        // Copilot CLI has no --system-prompt flag; system messages are
-        // embedded into the prompt via build_prompt(). Streaming is
-        // supported by reading stdout line by line.
-        LlmCapabilities::STREAMING
-    }
-
-    fn default_model(&self) -> &str {
-        &self.default_model
-    }
-
-    fn available_models(&self) -> &[String] {
-        &self.available_models
-    }
+    // Copilot CLI has no --system-prompt flag; system messages are
+    // embedded into the prompt via build_prompt(). Streaming is
+    // supported by reading stdout line by line.
+    crate::delegate_provider_base!("copilot", "GitHub Copilot CLI", LlmCapabilities::STREAMING);
 
     #[instrument(skip_all, fields(runner = "copilot"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
         let prompt = build_prompt(&request.messages);
         let mut cmd = self.build_command(&prompt, true);
 
-        let output = run_cli_command(&mut cmd, self.config.timeout, MAX_OUTPUT_BYTES).await?;
-
-        if output.exit_code != 0 {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            warn!(
-                exit_code = output.exit_code,
-                stdout_len = output.stdout.len(),
-                stderr_len = output.stderr.len(),
-                stdout_preview = %stdout.chars().take(500).collect::<String>(),
-                stderr_preview = %stderr.chars().take(500).collect::<String>(),
-                "Copilot CLI failed"
-            );
-            let detail = if stderr.is_empty() { &stdout } else { &stderr };
-            return Err(RunnerError::external_service(
-                "copilot",
-                format!("copilot exited with code {}: {detail}", output.exit_code),
-            ));
-        }
+        let output = run_cli_command(&mut cmd, self.base.config.timeout, MAX_OUTPUT_BYTES).await?;
+        self.base.check_exit_code(&output, "copilot")?;
 
         Self::parse_response(&output.stdout)
     }
@@ -288,28 +242,5 @@ impl LlmProvider for CopilotRunner {
         });
 
         Ok(Box::pin(GuardedStream::new(stream, child, stderr_task)))
-    }
-
-    async fn health_check(&self) -> Result<bool, RunnerError> {
-        let mut cmd = Command::new(&self.config.binary_path);
-        cmd.arg("--version");
-
-        let output =
-            run_cli_command(&mut cmd, HEALTH_CHECK_TIMEOUT, HEALTH_CHECK_MAX_OUTPUT).await?;
-
-        if output.exit_code == 0 {
-            debug!("Copilot CLI health check passed");
-            Ok(true)
-        } else {
-            warn!(
-                exit_code = output.exit_code,
-                "Copilot CLI health check failed"
-            );
-            Ok(false)
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

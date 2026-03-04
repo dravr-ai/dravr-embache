@@ -55,7 +55,7 @@ impl ServerState {
             return Ok(Arc::clone(runner));
         }
 
-        let runner = factory::create_runner(provider)?;
+        let runner = factory::create_runner(provider).await?;
         let runner: Arc<dyn LlmProvider> = Arc::from(runner);
         runners.insert(provider, Arc::clone(&runner));
         drop(runners);

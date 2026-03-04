@@ -17,8 +17,6 @@
 //! - Streaming responses (`complete_stream`) are passed through without quality
 //!   checking, since the full content is not available upfront.
 
-use std::any::Any;
-
 use async_trait::async_trait;
 use tracing::{info, warn};
 
@@ -220,10 +218,6 @@ impl LlmProvider for QualityGateProvider {
     async fn health_check(&self) -> Result<bool, RunnerError> {
         self.inner.health_check().await
     }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 #[cfg(test)]
@@ -288,9 +282,6 @@ mod tests {
         }
         async fn health_check(&self) -> Result<bool, RunnerError> {
             Ok(true)
-        }
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 

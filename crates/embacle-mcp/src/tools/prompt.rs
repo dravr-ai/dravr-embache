@@ -80,7 +80,7 @@ impl McpTool for Prompt {
 async fn execute_single(state: &SharedState, messages: &[ChatMessage]) -> CallToolResult {
     let mut state_guard = state.write().await;
     let provider = state_guard.active_provider();
-    let runner = match state_guard.get_runner(provider) {
+    let runner = match state_guard.get_runner(provider).await {
         Ok(r) => r,
         Err(e) => {
             return CallToolResult::error(format!("Failed to create runner: {e}"));

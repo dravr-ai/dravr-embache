@@ -97,7 +97,7 @@ async fn dispatch_single(
 
     let runner = {
         let mut state_guard = state.write().await;
-        state_guard.get_runner(provider)
+        state_guard.get_runner(provider).await
     };
 
     let runner = match runner {

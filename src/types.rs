@@ -10,7 +10,6 @@
 //! These types mirror the LLM provider contract without requiring
 //! any external platform dependency.
 
-use std::any::Any;
 use std::fmt;
 use std::pin::Pin;
 
@@ -24,6 +23,7 @@ use tokio_stream::Stream;
 
 /// Error type for CLI LLM runner operations
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct RunnerError {
     /// Error category
     pub kind: ErrorKind,
@@ -415,7 +415,4 @@ pub trait LlmProvider: Send + Sync {
 
     /// Check if the provider is healthy and ready to serve requests
     async fn health_check(&self) -> Result<bool, RunnerError>;
-
-    /// Downcast to a concrete type for provider-specific operations
-    fn as_any(&self) -> &dyn Any;
 }

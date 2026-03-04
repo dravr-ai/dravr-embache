@@ -4,14 +4,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
-use std::any::Any;
-use std::collections::HashMap;
 use std::io;
 use std::process::Stdio;
 use std::str;
-use std::sync::Arc;
-use std::time::Duration;
 
+use crate::cli_common::{CliRunnerBase, MAX_OUTPUT_BYTES};
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, RunnerError, StreamChunk,
     TokenUsage,
@@ -20,25 +17,15 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::Mutex;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
-use tracing::{debug, instrument, warn};
+use tracing::instrument;
 
 use crate::config::RunnerConfig;
 use crate::process::{read_stderr_capped, run_cli_command};
 use crate::prompt::build_user_prompt;
 use crate::sandbox::{apply_sandbox, build_policy};
 use crate::stream::{GuardedStream, MAX_STREAMING_STDERR_BYTES};
-
-/// Maximum output size for a single Cursor Agent invocation (50 MiB)
-const MAX_OUTPUT_BYTES: usize = 50 * 1024 * 1024;
-
-/// Health check timeout (10 seconds)
-const HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Health check output limit (4 KiB)
-const HEALTH_CHECK_MAX_OUTPUT: usize = 4096;
 
 /// Cursor Agent CLI response JSON structure
 #[derive(Debug, Deserialize)]
@@ -69,57 +56,46 @@ const FALLBACK_MODELS: &[&str] = &["sonnet-4", "gpt-5", "gemini-2.5-pro"];
 /// with `--output-format json` and `--approve-mcps` for automatic MCP
 /// server approval.
 pub struct CursorAgentRunner {
-    config: RunnerConfig,
-    default_model: String,
-    available_models: Vec<String>,
-    session_ids: Arc<Mutex<HashMap<String, String>>>,
+    base: CliRunnerBase,
 }
 
 impl CursorAgentRunner {
     /// Create a new Cursor Agent runner with the given configuration
     #[must_use]
     pub fn new(config: RunnerConfig) -> Self {
-        let default_model = config
-            .model
-            .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
-        let available_models = FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect();
         Self {
-            config,
-            default_model,
-            available_models,
-            session_ids: Arc::new(Mutex::new(HashMap::new())),
+            base: CliRunnerBase::new(config, DEFAULT_MODEL, FALLBACK_MODELS),
         }
     }
 
     /// Store a session ID for later resumption
     pub async fn set_session(&self, key: &str, session_id: &str) {
-        let mut sessions = self.session_ids.lock().await;
-        sessions.insert(key.to_owned(), session_id.to_owned());
+        self.base.set_session(key, session_id).await;
     }
 
     /// Build the base command with common arguments
     fn build_command(&self, prompt: &str, output_format: &str) -> Command {
-        let mut cmd = Command::new(&self.config.binary_path);
+        let mut cmd = Command::new(&self.base.config.binary_path);
         cmd.args(["-p", prompt, "--output-format", output_format]);
 
         // Cursor Agent always gets --approve-mcps
         cmd.arg("--approve-mcps");
 
         let model = self
+            .base
             .config
             .model
             .as_deref()
-            .unwrap_or_else(|| self.default_model());
+            .unwrap_or_else(|| self.base.default_model());
         cmd.args(["--model", model]);
 
-        for arg in &self.config.extra_args {
+        for arg in &self.base.config.extra_args {
             cmd.arg(arg);
         }
 
         if let Ok(policy) = build_policy(
-            self.config.working_directory.as_deref(),
-            &self.config.allowed_env_keys,
+            self.base.config.working_directory.as_deref(),
+            &self.base.config.allowed_env_keys,
         ) {
             apply_sandbox(&mut cmd, &policy);
         }
@@ -168,25 +144,11 @@ impl CursorAgentRunner {
 
 #[async_trait]
 impl LlmProvider for CursorAgentRunner {
-    fn name(&self) -> &'static str {
-        "cursor-agent"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "Cursor Agent CLI"
-    }
-
-    fn capabilities(&self) -> LlmCapabilities {
-        LlmCapabilities::STREAMING
-    }
-
-    fn default_model(&self) -> &str {
-        &self.default_model
-    }
-
-    fn available_models(&self) -> &[String] {
-        &self.available_models
-    }
+    crate::delegate_provider_base!(
+        "cursor-agent",
+        "Cursor Agent CLI",
+        LlmCapabilities::STREAMING | LlmCapabilities::TEMPERATURE | LlmCapabilities::MAX_TOKENS
+    );
 
     #[instrument(skip_all, fields(runner = "cursor_agent"))]
     async fn complete(&self, request: &ChatRequest) -> Result<ChatResponse, RunnerError> {
@@ -194,40 +156,19 @@ impl LlmProvider for CursorAgentRunner {
         let mut cmd = self.build_command(&prompt, "json");
 
         if let Some(model) = &request.model {
-            let sessions = self.session_ids.lock().await;
-            if let Some(sid) = sessions.get(model) {
-                cmd.args(["--resume", sid]);
+            if let Some(sid) = self.base.get_session(model).await {
+                cmd.args(["--resume", &sid]);
             }
         }
 
-        let output = run_cli_command(&mut cmd, self.config.timeout, MAX_OUTPUT_BYTES).await?;
-
-        if output.exit_code != 0 {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            warn!(
-                exit_code = output.exit_code,
-                stdout_len = output.stdout.len(),
-                stderr_len = output.stderr.len(),
-                stdout_preview = %stdout.chars().take(500).collect::<String>(),
-                stderr_preview = %stderr.chars().take(500).collect::<String>(),
-                "Cursor Agent CLI failed"
-            );
-            let detail = if stderr.is_empty() { &stdout } else { &stderr };
-            return Err(RunnerError::external_service(
-                "cursor-agent",
-                format!(
-                    "cursor-agent exited with code {}: {detail}",
-                    output.exit_code
-                ),
-            ));
-        }
+        let output = run_cli_command(&mut cmd, self.base.config.timeout, MAX_OUTPUT_BYTES).await?;
+        self.base.check_exit_code(&output, "cursor-agent")?;
 
         let (response, session_id) = Self::parse_response(&output.stdout)?;
 
         if let Some(sid) = session_id {
             if let Some(model) = &request.model {
-                self.set_session(model, &sid).await;
+                self.base.set_session(model, &sid).await;
             }
         }
 
@@ -240,9 +181,8 @@ impl LlmProvider for CursorAgentRunner {
         let mut cmd = self.build_command(&prompt, "stream-json");
 
         if let Some(model) = &request.model {
-            let sessions = self.session_ids.lock().await;
-            if let Some(sid) = sessions.get(model) {
-                cmd.args(["--resume", sid]);
+            if let Some(sid) = self.base.get_session(model).await {
+                cmd.args(["--resume", &sid]);
             }
         }
 
@@ -311,28 +251,5 @@ impl LlmProvider for CursorAgentRunner {
         });
 
         Ok(Box::pin(GuardedStream::new(stream, child, stderr_task)))
-    }
-
-    async fn health_check(&self) -> Result<bool, RunnerError> {
-        let mut cmd = Command::new(&self.config.binary_path);
-        cmd.arg("--version");
-
-        let output =
-            run_cli_command(&mut cmd, HEALTH_CHECK_TIMEOUT, HEALTH_CHECK_MAX_OUTPUT).await?;
-
-        if output.exit_code == 0 {
-            debug!("Cursor Agent health check passed");
-            Ok(true)
-        } else {
-            warn!(
-                exit_code = output.exit_code,
-                "Cursor Agent health check failed"
-            );
-            Ok(false)
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

@@ -71,6 +71,8 @@ pub mod auth;
 pub mod capability_guard;
 /// Claude Code CLI runner
 pub mod claude_code;
+/// Shared base struct and macro for CLI runner boilerplate
+pub mod cli_common;
 /// Cline CLI runner
 pub mod cline_cli;
 /// Codex CLI runner
@@ -132,13 +134,14 @@ pub use agent::{AgentExecutor, AgentResult, OnTurnCallback, TurnInfo};
 pub use auth::ProviderReadiness;
 pub use capability_guard::validate_capabilities;
 pub use claude_code::ClaudeCodeRunner;
+pub use cli_common::CliRunnerBase;
 pub use cline_cli::ClineCliRunner;
 pub use codex_cli::CodexCliRunner;
 pub use compat::CliCapabilities;
 pub use config::{CliRunnerType, RunnerConfig};
 pub use container::{ContainerConfig, ContainerExecutor, NetworkMode};
 pub use continue_cli::ContinueCliRunner;
-pub use copilot::CopilotRunner;
+pub use copilot::{copilot_fallback_models, discover_copilot_models, CopilotRunner};
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
 pub use fallback::FallbackProvider;

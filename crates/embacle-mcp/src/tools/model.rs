@@ -32,7 +32,7 @@ impl McpTool for GetModel {
         let mut state_guard = state.write().await;
         let provider = state_guard.active_provider();
         let current_model = state_guard.active_model().map(ToOwned::to_owned);
-        let runner_result = state_guard.get_runner(provider);
+        let runner_result = state_guard.get_runner(provider).await;
         drop(state_guard);
 
         let (default_model, available_models) = match runner_result {

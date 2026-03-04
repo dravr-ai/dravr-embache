@@ -72,7 +72,7 @@ impl ServerState {
     /// Get or lazily create a runner for the given provider type
     ///
     /// Created runners are cached for future calls.
-    pub fn get_runner(
+    pub async fn get_runner(
         &mut self,
         provider: CliRunnerType,
     ) -> Result<Arc<dyn LlmProvider>, RunnerError> {
@@ -80,7 +80,7 @@ impl ServerState {
             return Ok(Arc::clone(runner));
         }
 
-        let runner = factory::create_runner(provider)?;
+        let runner = factory::create_runner(provider).await?;
         let runner: Arc<dyn LlmProvider> = Arc::from(runner);
         self.runners.insert(provider, Arc::clone(&runner));
         Ok(runner)

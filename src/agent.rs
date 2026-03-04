@@ -260,7 +260,6 @@ mod tests {
     };
     use async_trait::async_trait;
     use serde_json::json;
-    use std::any::Any;
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::Mutex;
 
@@ -309,9 +308,6 @@ mod tests {
         }
         async fn health_check(&self) -> Result<bool, RunnerError> {
             Ok(true)
-        }
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 
