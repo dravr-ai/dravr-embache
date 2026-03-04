@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1] — 2026-03-04
+
+### Added
+
+- feat: fix tool calling for coding-assistant LLMs, add index to ToolCall Code-generation framing for catalogs, ToolCall.index per OpenAI spec, live Copilot tests
+
+
+
 ## [0.3.0] — 2026-03-03
 
 ### Added
