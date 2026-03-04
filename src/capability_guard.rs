@@ -6,13 +6,13 @@
 
 //! # Capability Guard
 //!
-//! Validates that a [`ChatRequest`] only uses parameters the target provider
-//! actually supports, based on its [`LlmCapabilities`] flags.
+//! Validates that a [`ChatRequest`](crate::types::ChatRequest) only uses parameters the target provider
+//! actually supports, based on its [`LlmCapabilities`](crate::types::LlmCapabilities) flags.
 //!
 //! In **strict** mode, unsupported parameters cause an immediate
-//! [`RunnerError::config`] rejection. In **permissive** mode (the default),
+//! [`RunnerError`](crate::types::RunnerError) rejection. In **permissive** mode (the default),
 //! the function returns warning strings that callers can surface in
-//! [`ChatResponse::warnings`].
+//! [`ChatResponse::warnings`](crate::types::ChatResponse::warnings).
 
 use crate::types::{ChatRequest, LlmCapabilities, RunnerError};
 
@@ -24,7 +24,7 @@ use crate::types::{ChatRequest, LlmCapabilities, RunnerError};
 ///
 /// # Errors
 ///
-/// Returns [`RunnerError::config`] in strict mode when the request uses
+/// Returns [`RunnerError`] in strict mode when the request uses
 /// a parameter the provider does not support.
 pub fn validate_capabilities(
     provider_name: &str,

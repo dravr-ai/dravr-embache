@@ -6,7 +6,7 @@
 
 //! # Structured Output Enforcement
 //!
-//! Forces any [`LlmProvider`] to return JSON that validates against a provided
+//! Forces any [`LlmProvider`](crate::types::LlmProvider) to return JSON that validates against a provided
 //! JSON Schema. The module injects schema instructions into the system message,
 //! extracts JSON from the response (including markdown fences), validates against
 //! the schema, and retries with validation feedback on failure.

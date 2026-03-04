@@ -58,7 +58,7 @@
 //! - [`goose_cli`] — Goose CLI runner
 //! - [`cline_cli`] — Cline CLI runner
 //! - [`continue_cli`] — Continue CLI runner
-//! - [`copilot_sdk_runner`] — GitHub Copilot SDK runner (requires `copilot-sdk` feature)
+//! - `copilot_sdk_runner` — GitHub Copilot SDK runner (requires `copilot-sdk` feature)
 
 /// Core types: traits, messages, requests, responses, and errors
 pub mod types;

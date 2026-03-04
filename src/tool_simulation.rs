@@ -18,7 +18,7 @@
 //!    produces a final text response
 //!
 //! This is the CLI counterpart to the SDK-based tool calling in
-//! [`CopilotSdkRunner::execute_with_tools()`](crate::copilot_sdk_runner::CopilotSdkRunner::execute_with_tools).
+//! `CopilotSdkRunner::execute_with_tools()` (requires `copilot-sdk` feature).
 //!
 //! ## Quick Start
 //!
@@ -124,7 +124,7 @@ pub type TextToolHandler = Arc<dyn Fn(&str, &Value) -> FunctionResponse + Send +
 
 /// Result of a text-based tool-calling conversation.
 ///
-/// Analogous to [`SdkToolResponse`](crate::copilot_sdk_runner::SdkToolResponse)
+/// Analogous to `SdkToolResponse` (requires `copilot-sdk` feature)
 /// but for CLI providers.
 #[derive(Debug, Clone)]
 pub struct TextToolResponse {
@@ -426,7 +426,7 @@ const MAX_TOOL_ITERATIONS: usize = 10;
 /// Execute a full text-based tool-calling conversation with a CLI provider.
 ///
 /// This is the CLI counterpart to
-/// [`CopilotSdkRunner::execute_with_tools()`](crate::copilot_sdk_runner::CopilotSdkRunner::execute_with_tools).
+/// `CopilotSdkRunner::execute_with_tools()` (requires `copilot-sdk` feature).
 ///
 /// # Flow
 ///

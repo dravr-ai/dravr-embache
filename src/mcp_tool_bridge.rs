@@ -14,7 +14,7 @@
 //!
 //! ## Async bridging
 //!
-//! [`create_mcp_tool_handler()`] bridges the async [`McpToolExecutor`] trait to
+//! [`create_mcp_tool_handler()`](crate::mcp_tool_bridge::create_mcp_tool_handler) bridges the async [`McpToolExecutor`] trait to
 //! the synchronous [`TextToolHandler`] callback via `tokio::task::block_in_place`.
 //! This requires a **multi-threaded tokio runtime** (`rt-multi-thread` feature).
 
