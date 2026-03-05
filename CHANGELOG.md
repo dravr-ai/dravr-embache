@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0] — 2026-03-05
+
+### Fixed
+
+- fix: streaming downgrade for non-streaming providers, reduce lock scope Permissive mode now falls back to complete() + SSE instead of erroring
+
+### Other
+
+- refactor: deduplicate runners, remove as_any, async model discovery CliRunnerBase + macro (-528 lines), #[must_use] on RunnerError
+
+
+
 ## [0.4.1] — 2026-03-04
 
 ### Added
