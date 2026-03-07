@@ -7,7 +7,7 @@
 
 Standalone Rust library that wraps AI CLI tools and SDKs as pluggable LLM providers.
 
-Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional SDK mode maintains a persistent JSON-RPC connection for native tool calling.
+Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional headless mode communicates via the ACP (Agent Client Protocol) for SDK-managed tool calling.
 
 ## Supported Runners
 
@@ -25,11 +25,11 @@ Instead of integrating with LLM APIs directly (which require API keys, SDKs, and
 | Cline CLI | `cline` | NDJSON output, streaming, session resume via task IDs |
 | Continue CLI | `cn` | JSON output, single-shot completions |
 
-### SDK Runners (persistent connection)
+### ACP Runners (persistent connection)
 
 | Runner | Feature Flag | Features |
 |--------|-------------|----------|
-| GitHub Copilot SDK | `copilot-sdk` | Persistent JSON-RPC via `copilot --headless`, native tool calling, streaming |
+| GitHub Copilot Headless | `copilot-headless` | NDJSON/JSON-RPC via `copilot --acp`, SDK-managed tool calling, streaming |
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embacle = "0.3"
+embacle = "0.6"
 ```
 
 Use a CLI runner:
@@ -62,23 +62,23 @@ async fn main() -> Result<(), embacle::types::RunnerError> {
 }
 ```
 
-### Copilot SDK (feature flag)
+### Copilot Headless (feature flag)
 
-Enable the `copilot-sdk` feature for persistent JSON-RPC instead of per-request subprocesses:
+Enable the `copilot-headless` feature for ACP-based communication with SDK-managed tool calling:
 
 ```toml
 [dependencies]
-embacle = { version = "0.3", features = ["copilot-sdk"] }
+embacle = { version = "0.6", features = ["copilot-headless"] }
 ```
 
 ```rust
-use embacle::{CopilotSdkRunner, CopilotSdkConfig};
+use embacle::{CopilotHeadlessRunner, CopilotHeadlessConfig};
 use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
 
 #[tokio::main]
 async fn main() -> Result<(), embacle::types::RunnerError> {
-    // Reads COPILOT_SDK_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
-    let runner = CopilotSdkRunner::from_env();
+    // Reads COPILOT_HEADLESS_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
+    let runner = CopilotHeadlessRunner::from_env().await;
 
     let request = ChatRequest::new(vec![
         ChatMessage::user("Explain Rust ownership"),
@@ -90,13 +90,12 @@ async fn main() -> Result<(), embacle::types::RunnerError> {
 }
 ```
 
-The SDK runner starts `copilot --headless` once and reuses the connection across requests. Configuration via environment variables:
+The headless runner spawns `copilot --acp` per request and communicates via NDJSON-framed JSON-RPC. Configuration via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `COPILOT_CLI_PATH` | auto-detect | Override path to copilot binary |
-| `COPILOT_SDK_MODEL` | `claude-sonnet-4.6` | Default model for completions |
-| `COPILOT_SDK_TRANSPORT` | `stdio` | Transport mode: `stdio` or `tcp` |
+| `COPILOT_HEADLESS_MODEL` | `claude-opus-4.6` | Default model for completions |
 | `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
 
 ## MCP Server (`embacle-mcp`)
@@ -222,8 +221,8 @@ Your Application
             │   ├── ClineCliRunner      → spawns `cline task --json --act --yolo`
             │   └── ContinueCliRunner   → spawns `cn -p --format json`
             │
-            ├── SDK Runners (persistent connection, behind feature flag)
-            │   └── CopilotSdkRunner    → JSON-RPC to `copilot --headless`
+            ├── ACP Runners (persistent connection, behind feature flag)
+            │   └── CopilotHeadlessRunner → NDJSON/JSON-RPC to `copilot --acp`
             │
             ├── Provider Decorators (composable wrappers)
             │   ├── FallbackProvider    → ordered chain, first success wins
@@ -254,8 +253,8 @@ All runners implement the same `LlmProvider` trait:
 - **`complete_stream()`** — streaming completion
 - **`health_check()`** — verify the runner is available and authenticated
 
-The `CopilotSdkRunner` additionally provides:
-- **`execute_with_tools()`** — native tool calling via the SDK's session and tool handler infrastructure
+The `CopilotHeadlessRunner` (requires `copilot-headless` feature) additionally provides:
+- **`converse()`** — returns `HeadlessToolResponse` with observed tool calls that copilot executed internally
 
 ### Text-Based Tool Calling (CLI runners)
 
@@ -465,9 +464,8 @@ let declarations = McpToolBridge::to_declarations(&mcp_tools);
 | `quality_gate` | default | Response validation (refusal detection, length checks) with retry |
 | `structured_output` | default | Schema-validated JSON extraction with retry |
 | `mcp_tool_bridge` | default | MCP tool definitions ↔ text-based tool loop bridge |
-| `copilot_sdk_runner` | `copilot-sdk` | Copilot SDK runner (persistent JSON-RPC) |
-| `copilot_sdk_config` | `copilot-sdk` | Copilot SDK configuration from environment |
-| `tool_bridge` | `copilot-sdk` | Tool definition conversion for native tool calling |
+| `copilot_headless` | `copilot-headless` | Copilot ACP runner (NDJSON/JSON-RPC via `copilot --acp`) |
+| `copilot_headless_config` | `copilot-headless` | Copilot Headless configuration from environment |
 
 ## License
 

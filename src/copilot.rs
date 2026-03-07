@@ -88,7 +88,7 @@ pub async fn discover_copilot_models() -> Option<Vec<String>> {
 
 /// Fallback model list when `gh copilot models` discovery fails.
 ///
-/// Used by both `CopilotRunner` and `CopilotSdkRunner`.
+/// Used by both `CopilotRunner` and `CopilotHeadlessRunner`.
 pub fn copilot_fallback_models() -> Vec<String> {
     FALLBACK_MODELS.iter().map(|s| (*s).to_owned()).collect()
 }

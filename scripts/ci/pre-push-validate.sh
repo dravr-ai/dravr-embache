@@ -57,16 +57,16 @@ echo "✅"
 echo ""
 
 # ============================================================================
-# TIER 2: Clippy (copilot-sdk feature)
+# TIER 2: Clippy (copilot-headless feature)
 # ============================================================================
-echo "📎 Tier 2: Clippy (copilot-sdk feature)"
-echo "----------------------------------------"
-echo -n "Running clippy --features copilot-sdk... "
+echo "📎 Tier 2: Clippy (copilot-headless feature)"
+echo "---------------------------------------------"
+echo -n "Running clippy --features copilot-headless... "
 
-if cargo clippy --all-targets --features copilot-sdk --quiet 2>&1 | grep -q "^error"; then
+if cargo clippy --all-targets --features copilot-headless --quiet 2>&1 | grep -q "^error"; then
     echo "❌"
     echo ""
-    cargo clippy --all-targets --features copilot-sdk 2>&1 | head -40
+    cargo clippy --all-targets --features copilot-headless 2>&1 | head -40
     exit 1
 fi
 echo "✅"
@@ -77,14 +77,14 @@ echo ""
 # ============================================================================
 echo "🧪 Tier 3: Tests"
 echo "-----------------"
-echo -n "Running cargo test --lib --features copilot-sdk... "
+echo -n "Running cargo test --lib --features copilot-headless... "
 
-if cargo test --lib --features copilot-sdk --quiet 2>&1; then
+if cargo test --lib --features copilot-headless --quiet 2>&1; then
     echo "✅"
 else
     echo "❌"
     echo ""
-    echo "Tests failed. Run: cargo test --lib --features copilot-sdk -- --nocapture"
+    echo "Tests failed. Run: cargo test --lib --features copilot-headless -- --nocapture"
     exit 1
 fi
 echo ""
