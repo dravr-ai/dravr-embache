@@ -11,11 +11,12 @@
 //! extracts JSON from the response (including markdown fences), validates against
 //! the schema, and retries with validation feedback on failure.
 //!
-//! ## Schema Validation Limitations
+//! ## Schema Validation Coverage
 //!
-//! The built-in validator checks `type`, `required` fields, and `properties`
-//! types one level deep. It is **not** a full JSON Schema implementation.
-//! For production use with complex schemas, consider an external validation crate.
+//! The built-in validator checks `type`, `required`, recursive `properties`,
+//! array `items`, `enum` values, numeric `minimum`/`maximum`, and
+//! `additionalProperties: false`. It does not cover the full JSON Schema
+//! specification (e.g., `oneOf`, `anyOf`, `$ref`, `pattern`).
 
 use serde_json::Value;
 use tracing::{info, warn};
@@ -223,10 +224,10 @@ fn extract_braced_json(text: &str) -> String {
     text.to_owned()
 }
 
-/// Validate a JSON value against a schema (lightweight, one level deep).
+/// Validate a JSON value against a schema.
 ///
-/// Checks: `type`, `required` properties, and `properties` type matching.
-/// This is not a full JSON Schema validator.
+/// Checks: `type`, `required`, recursive `properties`, array `items`,
+/// `enum` values, numeric `minimum`/`maximum`, and `additionalProperties: false`.
 pub fn validate_against_schema(value: &Value, schema: &Value) -> Vec<SchemaValidationError> {
     let mut errors = Vec::new();
     validate_value(value, schema, "$", &mut errors);
@@ -251,7 +252,38 @@ fn validate_value(
         }
     }
 
-    // For objects: check required fields and property types
+    // Check enum constraint
+    if let Some(enum_values) = schema.get("enum").and_then(Value::as_array) {
+        if !enum_values.contains(value) {
+            errors.push(SchemaValidationError {
+                message: format!("value not in enum: expected one of {enum_values:?}, got {value}"),
+                path: path.to_owned(),
+            });
+            return;
+        }
+    }
+
+    // Numeric bounds (minimum, maximum)
+    if let Some(num) = value.as_f64() {
+        if let Some(min) = schema.get("minimum").and_then(Value::as_f64) {
+            if num < min {
+                errors.push(SchemaValidationError {
+                    message: format!("value {num} is less than minimum {min}"),
+                    path: path.to_owned(),
+                });
+            }
+        }
+        if let Some(max) = schema.get("maximum").and_then(Value::as_f64) {
+            if num > max {
+                errors.push(SchemaValidationError {
+                    message: format!("value {num} exceeds maximum {max}"),
+                    path: path.to_owned(),
+                });
+            }
+        }
+    }
+
+    // For objects: check required fields, property types (recursive), additional properties
     if let Some(obj) = value.as_object() {
         if let Some(required) = schema.get("required").and_then(Value::as_array) {
             for req in required {
@@ -270,17 +302,31 @@ fn validate_value(
             for (prop_name, prop_schema) in properties {
                 if let Some(prop_value) = obj.get(prop_name) {
                     let prop_path = format!("{path}.{prop_name}");
-                    // Check type of the property (one level deep)
-                    if let Some(prop_type) = prop_schema.get("type").and_then(Value::as_str) {
-                        let actual = json_type_name(prop_value);
-                        if actual != prop_type {
-                            errors.push(SchemaValidationError {
-                                message: format!("expected type \"{prop_type}\", got \"{actual}\""),
-                                path: prop_path,
-                            });
-                        }
+                    // Recurse into nested properties
+                    validate_value(prop_value, prop_schema, &prop_path, errors);
+                }
+            }
+
+            // Check additionalProperties: false
+            if schema.get("additionalProperties") == Some(&Value::Bool(false)) {
+                for key in obj.keys() {
+                    if !properties.contains_key(key) {
+                        errors.push(SchemaValidationError {
+                            message: format!("unexpected additional property \"{key}\""),
+                            path: format!("{path}.{key}"),
+                        });
                     }
                 }
+            }
+        }
+    }
+
+    // For arrays: validate items against the items schema
+    if let Some(arr) = value.as_array() {
+        if let Some(items_schema) = schema.get("items") {
+            for (i, item) in arr.iter().enumerate() {
+                let item_path = format!("{path}[{i}]");
+                validate_value(item, items_schema, &item_path, errors);
             }
         }
     }
@@ -515,5 +561,111 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.message.contains("exhausted"));
+    }
+
+    // --- enhanced validation tests ---
+
+    #[test]
+    fn validate_nested_object() {
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "object",
+                    "properties": {
+                        "city": {"type": "string"},
+                        "zip": {"type": "string"}
+                    },
+                    "required": ["city"]
+                }
+            },
+            "required": ["address"]
+        });
+
+        let valid = json!({"address": {"city": "Paris", "zip": "75001"}});
+        assert!(validate_against_schema(&valid, &schema).is_empty());
+
+        let missing_city = json!({"address": {"zip": "75001"}});
+        let errors = validate_against_schema(&missing_city, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].path.contains("city"));
+
+        let wrong_type = json!({"address": {"city": 42}});
+        let errors = validate_against_schema(&wrong_type, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("expected type \"string\""));
+    }
+
+    #[test]
+    fn validate_array_items() {
+        let schema = json!({
+            "type": "array",
+            "items": {"type": "string"}
+        });
+
+        let valid = json!(["a", "b", "c"]);
+        assert!(validate_against_schema(&valid, &schema).is_empty());
+
+        let invalid = json!(["a", 42, "c"]);
+        let errors = validate_against_schema(&invalid, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].path.contains("[1]"));
+    }
+
+    #[test]
+    fn validate_enum_values() {
+        let schema = json!({
+            "type": "string",
+            "enum": ["red", "green", "blue"]
+        });
+
+        let valid = json!("green");
+        assert!(validate_against_schema(&valid, &schema).is_empty());
+
+        let invalid = json!("yellow");
+        let errors = validate_against_schema(&invalid, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("not in enum"));
+    }
+
+    #[test]
+    fn validate_numeric_bounds() {
+        let schema = json!({
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+        });
+
+        let valid = json!(50);
+        assert!(validate_against_schema(&valid, &schema).is_empty());
+
+        let too_low = json!(-1);
+        let errors = validate_against_schema(&too_low, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("less than minimum"));
+
+        let too_high = json!(101);
+        let errors = validate_against_schema(&too_high, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("exceeds maximum"));
+    }
+
+    #[test]
+    fn validate_additional_properties_false() {
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"}
+            },
+            "additionalProperties": false
+        });
+
+        let valid = json!({"name": "Alice"});
+        assert!(validate_against_schema(&valid, &schema).is_empty());
+
+        let with_extra = json!({"name": "Alice", "age": 30});
+        let errors = validate_against_schema(&with_extra, &schema);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].message.contains("unexpected additional property"));
     }
 }
