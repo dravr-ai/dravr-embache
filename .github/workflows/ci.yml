@@ -55,6 +55,7 @@ jobs:
         if: env.HAS_COPILOT_TOKEN == 'true'
         run: |
           npm install -g @github/copilot-linux-x64
+          ln -sf "$(npm root -g)/@github/copilot-linux-x64/bin/copilot-linux-x64" /usr/local/bin/copilot
           copilot --version
       - name: Copilot Headless E2E
         if: env.HAS_COPILOT_TOKEN == 'true'
