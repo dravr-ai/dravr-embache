@@ -586,6 +586,69 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_tool_choice_none() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"tool_choice":"none"}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        match req.tool_choice.expect("tool_choice present") {
+            ToolChoice::Mode(m) => assert_eq!(m, "none"),
+            ToolChoice::Specific(_) => panic!("expected mode"),
+        }
+    }
+
+    #[test]
+    fn deserialize_tool_choice_required() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"tool_choice":"required"}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        match req.tool_choice.expect("tool_choice present") {
+            ToolChoice::Mode(m) => assert_eq!(m, "required"),
+            ToolChoice::Specific(_) => panic!("expected mode"),
+        }
+    }
+
+    #[test]
+    fn deserialize_response_format_text() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"response_format":{"type":"text"}}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        assert!(matches!(
+            req.response_format,
+            Some(ResponseFormatRequest::Text)
+        ));
+    }
+
+    #[test]
+    fn deserialize_response_format_json_object() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"response_format":{"type":"json_object"}}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        assert!(matches!(
+            req.response_format,
+            Some(ResponseFormatRequest::JsonObject)
+        ));
+    }
+
+    #[test]
+    fn deserialize_response_format_json_schema() {
+        let json = r#"{
+            "model": "copilot",
+            "messages": [{"role": "user", "content": "hi"}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "weather",
+                    "schema": {"type": "object", "properties": {"temp": {"type": "number"}}}
+                }
+            }
+        }"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        match req.response_format {
+            Some(ResponseFormatRequest::JsonSchema { json_schema }) => {
+                assert_eq!(json_schema.name, "weather");
+                assert!(json_schema.schema["properties"]["temp"].is_object());
+            }
+            other => panic!("expected JsonSchema, got: {other:?}"),
+        }
+    }
+
+    #[test]
     fn serialize_models_response() {
         let resp = ModelsResponse {
             object: "list",

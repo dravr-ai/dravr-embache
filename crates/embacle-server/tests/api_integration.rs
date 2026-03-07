@@ -448,6 +448,83 @@ async fn multiplex_forwards_temperature_past_validation() {
 }
 
 // ============================================================================
+// Tool Calling
+// ============================================================================
+
+#[tokio::test]
+async fn completions_accepts_tools_with_tool_choice_none() {
+    let _guard = ENV_MUTEX.lock().await;
+    std::env::remove_var("EMBACLE_API_KEY");
+
+    // tool_choice=none should skip tool injection even when tools are provided
+    let body = serde_json::json!({
+        "model": "copilot",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {"type": "object", "properties": {"city": {"type": "string"}}}
+            }
+        }],
+        "tool_choice": "none"
+    });
+    let (status, _) = send_and_parse(test_app(), post_completions(&body)).await;
+    // Should pass validation (not 400) — the provider layer handles execution
+    assert_ne!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "tool_choice=none should pass validation"
+    );
+}
+
+#[tokio::test]
+async fn completions_accepts_tool_choice_specific() {
+    let _guard = ENV_MUTEX.lock().await;
+    std::env::remove_var("EMBACLE_API_KEY");
+
+    let body = serde_json::json!({
+        "model": "copilot",
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {"type": "object"}
+            }
+        }],
+        "tool_choice": {"type": "function", "function": {"name": "get_weather"}}
+    });
+    let (status, _) = send_and_parse(test_app(), post_completions(&body)).await;
+    assert_ne!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "specific tool_choice should pass validation"
+    );
+}
+
+#[tokio::test]
+async fn completions_accepts_response_format() {
+    let _guard = ENV_MUTEX.lock().await;
+    std::env::remove_var("EMBACLE_API_KEY");
+
+    let body = serde_json::json!({
+        "model": "copilot",
+        "messages": [{"role": "user", "content": "hi"}],
+        "response_format": {"type": "json_object"}
+    });
+    let (status, _) = send_and_parse(test_app(), post_completions(&body)).await;
+    // json_object format should be accepted by the parser (provider may or may not support it)
+    assert_ne!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "response_format should deserialize"
+    );
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
