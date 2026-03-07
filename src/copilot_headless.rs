@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use crate::copilot::{copilot_fallback_models, discover_copilot_models};
-use crate::copilot_headless_config::CopilotHeadlessConfig;
+use crate::copilot_headless_config::{CopilotHeadlessConfig, PermissionPolicy};
 use crate::types::{
     ChatRequest, ChatResponse, ChatStream, LlmCapabilities, LlmProvider, MessageRole, RunnerError,
     StreamChunk, TokenUsage,
@@ -273,28 +273,37 @@ fn process_notification(params: &Value, acc: &mut TurnAccumulator) {
     }
 }
 
-/// Auto-approve a permission request by selecting the first allow option.
-fn build_permission_response(params: &Value) -> Value {
+/// Build a permission response based on the configured policy.
+///
+/// With `AutoApprove`: selects `AllowAlways` over `AllowOnce`. If no allow option
+/// exists, cancels the request instead of falling back to a reject option.
+/// With `DenyAll`: always cancels the request.
+fn build_permission_response(params: &Value, policy: PermissionPolicy) -> Value {
+    if policy == PermissionPolicy::DenyAll {
+        debug!("Permission policy is DenyAll, cancelling");
+        return json!({ "outcome": "cancelled" });
+    }
+
     let Ok(req) = serde_json::from_value::<schema::RequestPermissionRequest>(params.clone()) else {
         warn!("Failed to parse permission request, cancelling");
         return json!({ "outcome": "cancelled" });
     };
 
+    // Prefer AllowAlways over AllowOnce for fewer repeated prompts
     let option_id = req
         .options
         .iter()
-        .find(|o| {
-            matches!(
-                o.kind,
-                schema::PermissionOptionKind::AllowOnce | schema::PermissionOptionKind::AllowAlways
-            )
+        .find(|o| matches!(o.kind, schema::PermissionOptionKind::AllowAlways))
+        .or_else(|| {
+            req.options
+                .iter()
+                .find(|o| matches!(o.kind, schema::PermissionOptionKind::AllowOnce))
         })
-        .or_else(|| req.options.first())
         .map(|o| &o.option_id);
 
     option_id.map_or_else(
         || {
-            warn!("Permission request had no options, cancelling");
+            warn!("Permission request had no allow options, cancelling");
             json!({ "outcome": "cancelled" })
         },
         |id| {
@@ -347,6 +356,7 @@ async fn collect_complete(
     transport: &mut AcpTransport,
     prompt_id: i64,
     model: String,
+    policy: PermissionPolicy,
 ) -> Result<(ChatResponse, Vec<ObservedToolCall>), RunnerError> {
     let mut acc = TurnAccumulator::new();
 
@@ -389,7 +399,7 @@ async fn collect_complete(
         }
 
         // Server requests and notifications
-        handle_server_message(&msg, transport, &mut acc).await?;
+        handle_server_message(&msg, transport, &mut acc, policy).await?;
     }
 }
 
@@ -398,6 +408,7 @@ async fn collect_streaming(
     transport: &mut AcpTransport,
     prompt_id: i64,
     chunk_tx: &mpsc::UnboundedSender<Result<StreamChunk, RunnerError>>,
+    policy: PermissionPolicy,
 ) -> Result<(), RunnerError> {
     let mut acc = TurnAccumulator::new();
 
@@ -452,7 +463,7 @@ async fn collect_streaming(
                 }
                 "session/request_permission" => {
                     if let (Some(id), Some(params)) = (msg.get("id"), msg.get("params")) {
-                        let response = build_permission_response(params);
+                        let response = build_permission_response(params, policy);
                         transport.send_response(id, response).await?;
                     }
                 }
@@ -467,6 +478,7 @@ async fn handle_server_message(
     msg: &Value,
     transport: &mut AcpTransport,
     acc: &mut TurnAccumulator,
+    policy: PermissionPolicy,
 ) -> Result<(), RunnerError> {
     if let Some(method) = msg.get("method").and_then(Value::as_str) {
         match method {
@@ -477,7 +489,7 @@ async fn handle_server_message(
             }
             "session/request_permission" => {
                 if let (Some(id), Some(params)) = (msg.get("id"), msg.get("params")) {
-                    let response = build_permission_response(params);
+                    let response = build_permission_response(params, policy);
                     transport.send_response(id, response).await?;
                 }
             }
@@ -624,7 +636,13 @@ impl CopilotHeadlessRunner {
             )
             .await?;
 
-        let result = collect_complete(&mut transport, prompt_id, model).await;
+        let result = collect_complete(
+            &mut transport,
+            prompt_id,
+            model,
+            self.config.permission_policy,
+        )
+        .await;
         let _ = child.kill().await;
 
         let (response, tool_calls) = result?;
@@ -690,7 +708,13 @@ impl LlmProvider for CopilotHeadlessRunner {
             )
             .await?;
 
-        let result = collect_complete(&mut transport, prompt_id, model).await;
+        let result = collect_complete(
+            &mut transport,
+            prompt_id,
+            model,
+            self.config.permission_policy,
+        )
+        .await;
         let _ = child.kill().await;
         result.map(|(response, _tool_calls)| response)
     }
@@ -720,9 +744,10 @@ impl LlmProvider for CopilotHeadlessRunner {
             .await?;
 
         let (chunk_tx, chunk_rx) = mpsc::unbounded_channel();
+        let policy = self.config.permission_policy;
 
         tokio::spawn(async move {
-            let result = collect_streaming(&mut transport, prompt_id, &chunk_tx).await;
+            let result = collect_streaming(&mut transport, prompt_id, &chunk_tx, policy).await;
             if let Err(e) = result {
                 let _ = chunk_tx.send(Err(e));
             }
@@ -738,5 +763,81 @@ impl LlmProvider for CopilotHeadlessRunner {
             tracing::info!(cli_path = %path.display(), "Copilot Headless health check: binary found");
             Ok(true)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Build a valid ACP permission request JSON with the given option kinds.
+    ///
+    /// Uses camelCase field names matching the `agent-client-protocol-schema` serde config.
+    /// `PermissionOptionKind` uses `snake_case`: `allow_once`, `allow_always`,
+    /// `reject_once`, `reject_always`.
+    fn make_permission_params(kinds: &[&str]) -> Value {
+        let options: Vec<Value> = kinds
+            .iter()
+            .enumerate()
+            .map(|(i, kind)| {
+                json!({
+                    "optionId": format!("opt_{i}"),
+                    "name": format!("Option {i}"),
+                    "kind": kind
+                })
+            })
+            .collect();
+        json!({
+            "sessionId": "test-session",
+            "toolCall": {
+                "toolCallId": "tc_1"
+            },
+            "options": options
+        })
+    }
+
+    #[test]
+    fn permission_only_reject_options_cancels() {
+        let params = make_permission_params(&["reject_once", "reject_always"]);
+        let result = build_permission_response(&params, PermissionPolicy::AutoApprove);
+        assert_eq!(result["outcome"], "cancelled");
+    }
+
+    #[test]
+    fn permission_prefers_allow_always_over_allow_once() {
+        let params = make_permission_params(&["allow_once", "allow_always", "reject_once"]);
+        let result = build_permission_response(&params, PermissionPolicy::AutoApprove);
+        // AllowAlways is at index 1 → opt_1
+        let selected_id = result["outcome"]["optionId"].as_str().unwrap();
+        assert_eq!(selected_id, "opt_1");
+    }
+
+    #[test]
+    fn permission_selects_allow_once_when_no_allow_always() {
+        let params = make_permission_params(&["allow_once", "reject_once"]);
+        let result = build_permission_response(&params, PermissionPolicy::AutoApprove);
+        let selected_id = result["outcome"]["optionId"].as_str().unwrap();
+        assert_eq!(selected_id, "opt_0");
+    }
+
+    #[test]
+    fn permission_empty_options_cancels() {
+        let params = json!({
+            "sessionId": "test-session",
+            "toolCall": {
+                "toolCallId": "tc_1"
+            },
+            "options": []
+        });
+        let result = build_permission_response(&params, PermissionPolicy::AutoApprove);
+        assert_eq!(result["outcome"], "cancelled");
+    }
+
+    #[test]
+    fn permission_deny_all_policy_always_cancels() {
+        let params = make_permission_params(&["allow_once", "allow_always"]);
+        let result = build_permission_response(&params, PermissionPolicy::DenyAll);
+        assert_eq!(result["outcome"], "cancelled");
     }
 }

@@ -161,4 +161,4 @@ pub use tool_simulation::{
 #[cfg(feature = "copilot-headless")]
 pub use copilot_headless::{CopilotHeadlessRunner, HeadlessToolResponse, ObservedToolCall};
 #[cfg(feature = "copilot-headless")]
-pub use copilot_headless_config::CopilotHeadlessConfig;
+pub use copilot_headless_config::{CopilotHeadlessConfig, PermissionPolicy};
