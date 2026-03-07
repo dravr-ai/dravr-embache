@@ -39,7 +39,7 @@ pub struct ChatCompletionRequest {
     /// Controls which tools the model may call
     #[serde(default)]
     pub tool_choice: Option<ToolChoice>,
-    /// Controls the response format (text, json_object, or json_schema)
+    /// Controls the response format (text, `json_object`, or `json_schema`)
     #[serde(default)]
     pub response_format: Option<ResponseFormatRequest>,
 }

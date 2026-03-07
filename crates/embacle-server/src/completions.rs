@@ -184,7 +184,7 @@ async fn dispatch_completion(
                     has_tools,
                     response.content,
                     response.finish_reason,
-                    response.tool_calls,
+                    response.tool_calls.as_ref(),
                 );
                 let reason = finish_reason.as_deref().unwrap_or("stop");
                 streaming::sse_single_response(message, reason, &model_name)
@@ -214,7 +214,7 @@ async fn dispatch_completion(
                     has_tools,
                     response.content,
                     response.finish_reason,
-                    response.tool_calls,
+                    response.tool_calls.as_ref(),
                 );
 
                 let resp = ChatCompletionResponse {
@@ -334,10 +334,10 @@ fn build_response_message(
     has_tools: bool,
     content: String,
     finish_reason: Option<String>,
-    native_tool_calls: Option<Vec<embacle::ToolCallRequest>>,
+    native_tool_calls: Option<&Vec<embacle::ToolCallRequest>>,
 ) -> (ResponseMessage, Option<String>) {
     // If the provider returned native tool calls, use them directly
-    if let Some(ref calls) = native_tool_calls {
+    if let Some(calls) = native_tool_calls {
         if !calls.is_empty() {
             let tool_calls: Vec<ToolCall> = calls
                 .iter()

@@ -62,9 +62,13 @@ impl ServerState {
         let runner = factory::create_runner(provider).await?;
         let runner: Arc<dyn LlmProvider> = Arc::from(runner);
 
-        let mut runners = self.runners.lock().await;
-        // Another request may have created the runner while we were waiting
-        let runner = runners.entry(provider).or_insert_with(|| runner).clone();
+        let runner = self
+            .runners
+            .lock()
+            .await
+            .entry(provider)
+            .or_insert_with(|| runner)
+            .clone();
         Ok(runner)
     }
 }
