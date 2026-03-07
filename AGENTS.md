@@ -25,32 +25,81 @@
 
 ## Project Overview
 
-**embacle** is a standalone Rust library that wraps AI CLI tools (Claude Code, Copilot, Cursor Agent, OpenCode) as pluggable LLM providers via subprocess execution.
+**embacle** is a Rust workspace providing pluggable LLM providers that delegate to AI CLI tools and the ACP protocol — plus an MCP server and an OpenAI-compatible REST API server.
+
+### Workspace Crates
+
+| Crate | Type | Purpose |
+|-------|------|---------|
+| `embacle` | library | Core: 9 CLI runners, ACP headless runner, agent loop, decorators, tool simulation |
+| `embacle-mcp` | binary | MCP server (stdio/HTTP) exposing all runners via JSON-RPC 2.0 |
+| `embacle-server` | binary | OpenAI-compatible REST API with SSE streaming, multiplex fan-out, bearer auth |
+
+### CLI Runners (subprocess per request)
+Claude Code, Copilot, Cursor Agent, OpenCode, Gemini, Codex, Goose, Cline, Continue
+
+### ACP Runner (feature flag: `copilot-headless`)
+`CopilotHeadlessRunner` — NDJSON/JSON-RPC via `copilot --acp` with SDK-managed tool calling
+
+### Higher-Level Features
+- **Agent loop** (`AgentExecutor`) — multi-turn tool calling with configurable max turns
+- **Fallback chains** (`FallbackProvider`) — ordered failover across providers
+- **Metrics** (`MetricsProvider`) — latency, token, and error tracking decorator
+- **Quality gate** (`QualityGateProvider`) — response validation with retry on refusal
+- **Structured output** — schema-validated JSON extraction from any provider
+- **MCP tool bridge** — connect MCP tool servers to CLI runners via text-based tool loop
+- **Text tool simulation** — XML-based `<tool_call>` protocol for CLI runners without native function calling
 
 ### Architecture
 ```
 src/
-├── lib.rs           # Re-exports all runners + shared types
-├── types.rs         # Standalone types: RunnerError, LlmProvider trait, ChatRequest, etc.
-├── config.rs        # RunnerConfig, CliRunnerType enum
-├── auth.rs          # Auth checking + readiness state
-├── discovery.rs     # Binary auto-detection via `which`
-├── process.rs       # Subprocess spawning, timeout, output capture
-├── sandbox.rs       # Env/cwd/tool policy enforcement
-├── container.rs     # Optional container execution backend
-├── prompt.rs        # Build prompts from ChatMessage history
-├── compat.rs        # CLI compatibility detection
-├── claude_code.rs   # ClaudeCodeRunner
-├── copilot.rs       # CopilotRunner
-├── cursor_agent.rs  # CursorAgentRunner
-└── opencode.rs      # OpenCodeRunner
+├── lib.rs                  # Re-exports all runners + shared types
+├── types.rs                # LlmProvider trait, RunnerError, ChatRequest, ChatResponse, etc.
+├── config.rs               # RunnerConfig, CliRunnerType enum
+├── cli_common.rs           # CliRunnerBase + macro for runner boilerplate
+├── auth.rs                 # Auth checking + readiness state
+├── discovery.rs            # Binary auto-detection via `which`
+├── process.rs              # Subprocess spawning, timeout, output capture
+├── sandbox.rs              # Env/cwd/tool policy enforcement
+├── container.rs            # Optional container execution backend
+├── prompt.rs               # Build prompts from ChatMessage history
+├── compat.rs               # CLI compatibility detection
+├── stream.rs               # GuardedStream for child process lifecycle
+├── agent.rs                # Multi-turn agent loop with tool calling
+├── fallback.rs             # Ordered provider failover
+├── metrics.rs              # Latency/token tracking decorator
+├── quality_gate.rs         # Response validation with retry
+├── structured_output.rs    # Schema-enforced JSON extraction
+├── tool_simulation.rs      # Text-based tool calling (XML protocol)
+├── mcp_tool_bridge.rs      # MCP tool definitions ↔ text tool loop
+├── capability_guard.rs     # Request/provider capability validation
+├── claude_code.rs          # ClaudeCodeRunner
+├── copilot.rs              # CopilotRunner + model discovery
+├── copilot_headless.rs     # CopilotHeadlessRunner (ACP/NDJSON)
+├── copilot_headless_config.rs  # Headless config from env vars
+├── cursor_agent.rs         # CursorAgentRunner
+├── opencode.rs             # OpenCodeRunner (NDJSON)
+├── gemini_cli.rs           # GeminiCliRunner
+├── codex_cli.rs            # CodexCliRunner (JSONL)
+├── goose_cli.rs            # GooseCliRunner
+├── cline_cli.rs            # ClineCliRunner (NDJSON)
+└── continue_cli.rs         # ContinueCliRunner
+
+crates/
+├── embacle-mcp/            # MCP server binary (stdio + HTTP/SSE)
+└── embacle-server/         # OpenAI-compatible REST API server
+
+tests/
+└── e2e.rs                  # E2E integration tests (env-gated per runner)
 ```
 
 ### Key Design Decisions
 - **100% standalone** — zero dependency on dravr-platform or pierre-core
 - **Types in `types.rs`** — `RunnerError`, `LlmProvider` trait, `ChatRequest`, `ChatResponse`, etc.
 - **Subprocess-based** — wraps CLI tools via `tokio::process::Command`
-- **No HTTP dependencies** — only tokio (process), serde, tracing, which, bitflags
+- **ACP via feature flag** — `copilot-headless` adds NDJSON/JSON-RPC transport for `copilot --acp`
+- **No HTTP dependencies in core** — only tokio (process), serde, tracing, which, bitflags
+- **Workspace binaries** — MCP server and REST API are separate crates with their own dependencies
 
 ## Git Hooks - MANDATORY for ALL AI Agents
 
