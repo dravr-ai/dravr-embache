@@ -307,6 +307,37 @@ The pure functions are also available individually for custom loop implementatio
 | `strip_tool_call_blocks()` | Returns clean text with tool blocks removed |
 | `format_tool_results_as_text()` | Formats results as `<tool_result>` XML blocks |
 
+### Native Tool Calling Types
+
+The core library provides typed tool calling that flows through `ChatRequest` and `ChatResponse`, so callers can use native tool definitions without relying on the text-based XML simulation.
+
+```rust
+use embacle::types::{ChatMessage, ChatRequest};
+use embacle::{ToolDefinition, ToolChoice};
+use serde_json::json;
+
+let tools = vec![ToolDefinition {
+    name: "get_weather".into(),
+    description: "Get current weather for a city".into(),
+    parameters: Some(json!({
+        "type": "object",
+        "properties": { "city": { "type": "string" } },
+        "required": ["city"]
+    })),
+}];
+
+let request = ChatRequest::new(vec![
+    ChatMessage::user("What's the weather in Paris?"),
+])
+.with_tools(tools)
+.with_tool_choice(ToolChoice::Auto);
+
+// Providers that support function calling will use native tool calls;
+// the server falls back to XML text simulation for CLI runners
+```
+
+Additional request fields: `top_p`, `stop` sequences, and `response_format` (text, JSON object, or JSON schema). The `capability_guard` module validates these against provider capabilities before dispatch.
+
 ### Agent Loop
 
 `AgentExecutor` runs a multi-turn tool-calling loop: inject a tool catalog, send the prompt, parse `<tool_call>` blocks from the response, execute tools, feed results back, repeat until the model stops calling tools or `max_turns` is reached.
@@ -383,13 +414,13 @@ let policy = QualityPolicy {
     min_content_length: 10,
     ..QualityPolicy::default()
 };
-let provider = QualityGateProvider::with_policy(Box::new(runner), policy);
+let provider = QualityGateProvider::new(Box::new(runner), policy);
 let response = provider.complete(&request).await?;
 ```
 
 ### Structured Output
 
-Forces any provider to return schema-valid JSON by injecting schema instructions and validating the response, retrying with error feedback on schema violations.
+Forces any provider to return schema-valid JSON by injecting schema instructions and validating the response, retrying with error feedback on schema violations. Validation covers nested objects, array items, enum values, numeric bounds (`minimum`/`maximum`), and `additionalProperties: false`.
 
 ```rust
 use embacle::structured_output::{request_structured_output, StructuredOutputRequest};
@@ -432,15 +463,17 @@ let declarations = McpToolBridge::to_declarations(&mcp_tools);
 
 - **Zero API keys** — uses CLI tools' own auth (OAuth, API keys managed by the tool)
 - **Auto-discovery** — finds installed CLI binaries via `which`
-- **Auth readiness** — non-blocking checks, graceful degradation
+- **Auth readiness** — non-blocking checks with env var probes and graceful degradation
 - **Capability detection** — probes CLI version and supported features
+- **Capability guard** — validates request fields against provider capabilities before dispatch
+- **Native tool calling types** — `ToolDefinition`, `ToolCallRequest`, `ToolChoice`, `ResponseFormat` in core
 - **Container isolation** — optional container-based execution for production
 - **Subprocess safety** — timeout, output limits, environment sandboxing
 - **Agent loop** — multi-turn tool calling with configurable max turns and turn callbacks
 - **Fallback chains** — ordered provider failover with automatic retry
 - **Metrics** — latency, token, and error tracking as a provider decorator
 - **Quality gate** — response validation with retry on refusal or insufficient content
-- **Structured output** — schema-validated JSON extraction from any provider
+- **Structured output** — schema-validated JSON extraction with recursive validation (nested objects, arrays, enums, numeric bounds)
 - **MCP tool bridge** — connect MCP tool servers to CLI runners via text-based tool loop
 - **Feature flags** — SDK integrations are opt-in to keep the default dependency footprint minimal
 
@@ -448,10 +481,11 @@ let declarations = McpToolBridge::to_declarations(&mcp_tools);
 
 | Module | Feature | Purpose |
 |--------|---------|---------|
-| `types` | default | Core types: `LlmProvider` trait, `ChatRequest`, `ChatResponse`, `RunnerError` |
+| `types` | default | Core types: `LlmProvider` trait, `ChatRequest`, `ChatResponse`, `RunnerError`, `ToolDefinition`, `ToolCallRequest`, `ToolChoice`, `ResponseFormat` |
 | `config` | default | Runner types, execution modes, configuration |
 | `discovery` | default | Auto-detect installed CLI binaries |
-| `auth` | default | Readiness checking (is the CLI authenticated?) |
+| `auth` | default | Readiness checking with env var probes (`ProviderReadiness`, `check_env_var_auth`) |
+| `capability_guard` | default | Validates request fields against provider capabilities (tools, `top_p`, stop, response format) |
 | `compat` | default | Version compatibility and capability detection |
 | `process` | default | Subprocess spawning with timeout and output limits |
 | `sandbox` | default | Environment variable whitelisting, working directory control |
@@ -462,10 +496,10 @@ let declarations = McpToolBridge::to_declarations(&mcp_tools);
 | `fallback` | default | Ordered provider chain with first-success-wins failover |
 | `metrics` | default | Latency, token usage, and error tracking decorator |
 | `quality_gate` | default | Response validation (refusal detection, length checks) with retry |
-| `structured_output` | default | Schema-validated JSON extraction with retry |
+| `structured_output` | default | Schema-validated JSON extraction with recursive validation and retry |
 | `mcp_tool_bridge` | default | MCP tool definitions ↔ text-based tool loop bridge |
 | `copilot_headless` | `copilot-headless` | Copilot ACP runner (NDJSON/JSON-RPC via `copilot --acp`) |
-| `copilot_headless_config` | `copilot-headless` | Copilot Headless configuration from environment |
+| `copilot_headless_config` | `copilot-headless` | Copilot Headless configuration from environment (`PermissionPolicy`) |
 
 ## License
 
