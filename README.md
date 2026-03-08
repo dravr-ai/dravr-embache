@@ -37,7 +37,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embacle = "0.6"
+embacle = "0.7"
 ```
 
 Use a CLI runner:

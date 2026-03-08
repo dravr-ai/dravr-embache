@@ -70,6 +70,11 @@ At least one supported CLI tool must be installed and authenticated:
 - `copilot` (GitHub Copilot)
 - `cursor-agent` (Cursor Agent)
 - `opencode` (OpenCode)
+- `gemini` (Gemini CLI)
+- `codex` (Codex CLI)
+- `goose` (Goose CLI)
+- `cline` (Cline CLI)
+- `cn` (Continue CLI)
 
 ## License
 

@@ -8,9 +8,24 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use embacle::config::CliRunnerType;
-use embacle::types::{ChatMessage, ChatRequest, RunnerError};
+use embacle::types::{ChatMessage, ChatRequest, ResponseFormat, RunnerError};
 
 use crate::state::SharedState;
+
+/// Optional request parameters forwarded to each provider in a multiplex dispatch
+#[derive(Debug, Clone, Default)]
+pub struct MultiplexParams {
+    /// Temperature for response randomness
+    pub temperature: Option<f32>,
+    /// Maximum tokens to generate
+    pub max_tokens: Option<u32>,
+    /// Nucleus sampling parameter
+    pub top_p: Option<f32>,
+    /// Stop sequences that halt generation
+    pub stop: Option<Vec<String>>,
+    /// Response format control
+    pub response_format: Option<ResponseFormat>,
+}
 
 /// Aggregated result from dispatching a prompt to multiple providers
 #[derive(Debug)]
@@ -57,17 +72,17 @@ impl MultiplexEngine {
         &self,
         messages: &[ChatMessage],
         providers: &[CliRunnerType],
-        temperature: Option<f32>,
-        max_tokens: Option<u32>,
+        params: &MultiplexParams,
     ) -> Result<MultiplexResult, RunnerError> {
         let mut handles = Vec::with_capacity(providers.len());
 
         for &provider in providers {
             let state = Arc::clone(&self.state);
             let messages = messages.to_vec();
+            let params = params.clone();
 
             handles.push(tokio::spawn(async move {
-                dispatch_single(state, provider, messages, temperature, max_tokens).await
+                dispatch_single(state, provider, messages, &params).await
             }));
         }
 
@@ -95,8 +110,7 @@ async fn dispatch_single(
     state: SharedState,
     provider: CliRunnerType,
     messages: Vec<ChatMessage>,
-    temperature: Option<f32>,
-    max_tokens: Option<u32>,
+    params: &MultiplexParams,
 ) -> ProviderResponse {
     let start = Instant::now();
 
@@ -116,8 +130,11 @@ async fn dispatch_single(
     };
 
     let mut request = ChatRequest::new(messages);
-    request.temperature = temperature;
-    request.max_tokens = max_tokens;
+    request.temperature = params.temperature;
+    request.max_tokens = params.max_tokens;
+    request.top_p = params.top_p;
+    request.stop.clone_from(&params.stop);
+    request.response_format.clone_from(&params.response_format);
     match runner.complete(&request).await {
         Ok(response) => ProviderResponse {
             provider: provider.to_string(),

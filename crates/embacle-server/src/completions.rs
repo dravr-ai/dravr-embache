@@ -17,11 +17,11 @@ use tracing::{debug, error, warn};
 
 use crate::openai_types::{
     ChatCompletionMessage, ChatCompletionRequest, ChatCompletionResponse, Choice, ErrorResponse,
-    ModelField, MultiplexProviderResult, MultiplexResponse, ResponseMessage, ToolCall,
-    ToolCallFunction, ToolChoice, Usage,
+    ModelField, MultiplexProviderResult, MultiplexResponse, ResponseFormatRequest, ResponseMessage,
+    StopField, ToolCall, ToolCallFunction, ToolChoice, Usage,
 };
 use crate::provider_resolver::resolve_model;
-use crate::runner::multiplex::MultiplexEngine;
+use crate::runner::multiplex::{MultiplexEngine, MultiplexParams};
 use crate::state::SharedState;
 use crate::streaming;
 
@@ -47,6 +47,11 @@ pub async fn handle(
     if let Some(max) = request.max_tokens {
         if max == 0 {
             return error_response(StatusCode::BAD_REQUEST, "max_tokens must be greater than 0");
+        }
+    }
+    if let Some(top_p) = request.top_p {
+        if !(0.0..=1.0).contains(&top_p) {
+            return error_response(StatusCode::BAD_REQUEST, "top_p must be between 0.0 and 1.0");
         }
     }
 
@@ -116,6 +121,9 @@ async fn handle_single(
     chat_request.model = resolved.model;
     chat_request.temperature = request.temperature;
     chat_request.max_tokens = request.max_tokens;
+    chat_request.top_p = request.top_p;
+    chat_request.stop = request.stop.clone().map(StopField::into_vec);
+    chat_request.response_format = request.response_format.as_ref().map(server_format_to_core);
     chat_request.tools = request
         .tools
         .as_ref()
@@ -270,6 +278,10 @@ async fn handle_multiplex(
     let mut validation_request = ChatRequest::new(messages.clone());
     validation_request.temperature = request.temperature;
     validation_request.max_tokens = request.max_tokens;
+    validation_request.top_p = request.top_p;
+    validation_request.stop = request.stop.clone().map(StopField::into_vec);
+    validation_request.response_format =
+        request.response_format.as_ref().map(server_format_to_core);
 
     for &provider_type in &providers {
         let runner = match state.get_runner(provider_type).await {
@@ -292,15 +304,14 @@ async fn handle_multiplex(
     }
 
     let engine = MultiplexEngine::new(state);
-    match engine
-        .execute(
-            &messages,
-            &providers,
-            request.temperature,
-            request.max_tokens,
-        )
-        .await
-    {
+    let params = MultiplexParams {
+        temperature: request.temperature,
+        max_tokens: request.max_tokens,
+        top_p: request.top_p,
+        stop: request.stop.clone().map(StopField::into_vec),
+        response_format: request.response_format.as_ref().map(server_format_to_core),
+    };
+    match engine.execute(&messages, &providers, &params).await {
         Ok(result) => {
             let results = result
                 .responses
@@ -518,6 +529,18 @@ fn server_choice_to_core(choice: &ToolChoice) -> embacle::ToolChoice {
         },
         ToolChoice::Specific(s) => embacle::ToolChoice::Specific {
             name: s.function.name.clone(),
+        },
+    }
+}
+
+/// Convert a server `ResponseFormatRequest` to core `ResponseFormat`
+fn server_format_to_core(format: &ResponseFormatRequest) -> embacle::ResponseFormat {
+    match format {
+        ResponseFormatRequest::Text => embacle::ResponseFormat::Text,
+        ResponseFormatRequest::JsonObject => embacle::ResponseFormat::JsonObject,
+        ResponseFormatRequest::JsonSchema { json_schema } => embacle::ResponseFormat::JsonSchema {
+            name: json_schema.name.clone(),
+            schema: json_schema.schema.clone(),
         },
     }
 }

@@ -42,6 +42,35 @@ pub struct ChatCompletionRequest {
     /// Controls the response format (text, `json_object`, or `json_schema`)
     #[serde(default)]
     pub response_format: Option<ResponseFormatRequest>,
+    /// Nucleus sampling parameter (0.0 - 1.0)
+    #[serde(default)]
+    pub top_p: Option<f32>,
+    /// Stop sequence(s) that halt generation — single string or array
+    #[serde(default)]
+    pub stop: Option<StopField>,
+}
+
+/// Stop field that accepts either a single string or an array of strings
+///
+/// Per `OpenAI` spec, the `stop` parameter can be a string or an array of
+/// up to 4 strings.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum StopField {
+    /// Single stop sequence
+    Single(String),
+    /// Multiple stop sequences
+    Multiple(Vec<String>),
+}
+
+impl StopField {
+    /// Convert to a Vec of strings regardless of the variant
+    pub fn into_vec(self) -> Vec<String> {
+        match self {
+            Self::Single(s) => vec![s],
+            Self::Multiple(v) => v,
+        }
+    }
 }
 
 /// OpenAI-compatible response format request
@@ -646,6 +675,49 @@ mod tests {
             }
             other => panic!("expected JsonSchema, got: {other:?}"),
         }
+    }
+
+    #[test]
+    fn deserialize_top_p() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"top_p":0.9}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(req.top_p, Some(0.9));
+    }
+
+    #[test]
+    fn deserialize_stop_single() {
+        let json =
+            r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"stop":"END"}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        let stop = req.stop.expect("stop present");
+        assert_eq!(stop.into_vec(), vec!["END"]);
+    }
+
+    #[test]
+    fn deserialize_stop_array() {
+        let json = r#"{"model":"copilot","messages":[{"role":"user","content":"hi"}],"stop":["END","STOP"]}"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        let stop = req.stop.expect("stop present");
+        assert_eq!(stop.into_vec(), vec!["END", "STOP"]);
+    }
+
+    #[test]
+    fn deserialize_all_optional_fields() {
+        let json = r#"{
+            "model": "copilot",
+            "messages": [{"role": "user", "content": "hi"}],
+            "temperature": 0.7,
+            "max_tokens": 100,
+            "top_p": 0.95,
+            "stop": ["END"],
+            "stream": true
+        }"#;
+        let req: ChatCompletionRequest = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(req.temperature, Some(0.7));
+        assert_eq!(req.max_tokens, Some(100));
+        assert_eq!(req.top_p, Some(0.95));
+        assert!(req.stop.is_some());
+        assert!(req.stream);
     }
 
     #[test]

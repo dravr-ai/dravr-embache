@@ -23,7 +23,7 @@ embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
 | Tool | Description |
 |------|-------------|
 | `get_provider` | Get active LLM provider and list available providers |
-| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`) |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`) |
 | `get_model` | Get current model and list available models for the active provider |
 | `set_model` | Set the model for subsequent requests (pass null to reset to default) |
 | `get_multiplex_provider` | Get providers configured for multiplex dispatch |
@@ -52,6 +52,11 @@ At least one supported CLI tool must be installed and authenticated:
 - `copilot` (GitHub Copilot)
 - `cursor-agent` (Cursor Agent)
 - `opencode` (OpenCode)
+- `gemini` (Gemini CLI)
+- `codex` (Codex CLI)
+- `goose` (Goose CLI)
+- `cline` (Cline CLI)
+- `cn` (Continue CLI)
 
 ## License
 

@@ -1,48 +1,7 @@
-// ABOUTME: Factory for creating embacle LlmProvider instances from runner type identifiers
-// ABOUTME: Resolves binary paths and constructs the appropriate runner with default config
+// ABOUTME: Re-exports the runner factory from the core embacle crate
+// ABOUTME: Delegates to embacle::factory::create_runner for all provider instantiation
 //
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
 
-use std::env;
-
-use embacle::config::{CliRunnerType, RunnerConfig};
-use embacle::discovery::resolve_binary;
-use embacle::types::{LlmProvider, RunnerError};
-use embacle::{
-    ClaudeCodeRunner, ClineCliRunner, CodexCliRunner, ContinueCliRunner, CopilotRunner,
-    CursorAgentRunner, GeminiCliRunner, GooseCliRunner, OpenCodeRunner,
-};
-
-/// Create an `LlmProvider` instance for the given runner type
-///
-/// Resolves the CLI binary via environment variable override or PATH lookup,
-/// then constructs the appropriate runner with default configuration.
-///
-/// # Errors
-///
-/// Returns [`RunnerError`] if the CLI binary cannot be found.
-pub async fn create_runner(
-    runner_type: CliRunnerType,
-) -> Result<Box<dyn LlmProvider>, RunnerError> {
-    let binary_name = runner_type.binary_name();
-    let env_key = runner_type.env_override_key();
-    let env_override = env::var(env_key).ok();
-
-    let binary_path = resolve_binary(binary_name, env_override.as_deref())?;
-    let config = RunnerConfig::new(binary_path);
-
-    let runner: Box<dyn LlmProvider> = match runner_type {
-        CliRunnerType::ClaudeCode => Box::new(ClaudeCodeRunner::new(config)),
-        CliRunnerType::Copilot => Box::new(CopilotRunner::new(config).await),
-        CliRunnerType::CursorAgent => Box::new(CursorAgentRunner::new(config)),
-        CliRunnerType::OpenCode => Box::new(OpenCodeRunner::new(config)),
-        CliRunnerType::GeminiCli => Box::new(GeminiCliRunner::new(config)),
-        CliRunnerType::CodexCli => Box::new(CodexCliRunner::new(config)),
-        CliRunnerType::GooseCli => Box::new(GooseCliRunner::new(config)),
-        CliRunnerType::ClineCli => Box::new(ClineCliRunner::new(config)),
-        CliRunnerType::ContinueCli => Box::new(ContinueCliRunner::new(config)),
-    };
-
-    Ok(runner)
-}
+pub use embacle::factory::create_runner;

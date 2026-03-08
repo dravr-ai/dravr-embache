@@ -91,6 +91,8 @@ pub mod copilot;
 pub mod cursor_agent;
 /// Binary auto-detection and discovery
 pub mod discovery;
+/// Runner factory, provider parsing, and provider enumeration
+pub mod factory;
 /// Provider fallback chains
 pub mod fallback;
 /// Gemini CLI runner
@@ -141,6 +143,7 @@ pub use continue_cli::ContinueCliRunner;
 pub use copilot::{copilot_fallback_models, discover_copilot_models, CopilotRunner};
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
+pub use factory::{create_runner, parse_runner_type, valid_provider_names, ALL_PROVIDERS};
 pub use fallback::FallbackProvider;
 pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
