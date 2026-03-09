@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.8.0] — 2026-03-09
+
+### Added
+
+- feat: add Warp terminal (oz) CLI runner as 10th provider
+
+### Fixed
+
+- fix: ACP prompt timeout, stdio error propagation, redact log output
+- fix: timing-safe auth, dependabot config, remove Box::leak
+
+### Other
+
+- refactor: dedup factory/runner code, wire top_p/stop/response_format Move factory+parsing to core, add top_p/stop to OpenAI types, fix READMEs (0.6->0.7, 9 providers)
+- Update Dependabot configuration version
+
+
+
 ## [0.7.0] — 2026-03-07
 
 ### Added
