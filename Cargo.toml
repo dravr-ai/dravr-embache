@@ -32,7 +32,7 @@ tempfile = "3"
 tokio = { version = "1.45", features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros", "fs"] }
 tokio-stream = { version = "0.1", features = ["io-util"] }
 tracing = "0.1"
-which = "7"
+which = "8"
 
 # Optional: ACP schema types for Copilot Headless (copilot --acp)
 agent-client-protocol-schema = { version = "0.11", optional = true }
