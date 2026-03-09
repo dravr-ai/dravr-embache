@@ -24,6 +24,7 @@ Instead of integrating with LLM APIs directly (which require API keys, SDKs, and
 | Goose CLI | `goose` | JSON/stream-JSON output, streaming, no-session mode |
 | Cline CLI | `cline` | NDJSON output, streaming, session resume via task IDs |
 | Continue CLI | `cn` | JSON output, single-shot completions |
+| Warp | `oz` | NDJSON output, conversation resume |
 
 ### ACP Runners (persistent connection)
 
@@ -68,7 +69,7 @@ Enable the `copilot-headless` feature for ACP-based communication with SDK-manag
 
 ```toml
 [dependencies]
-embacle = { version = "0.6", features = ["copilot-headless"] }
+embacle = { version = "0.7", features = ["copilot-headless"] }
 ```
 
 ```rust
@@ -117,7 +118,7 @@ embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
 | Tool | Description |
 |------|-------------|
 | `get_provider` | Get active LLM provider and list available providers |
-| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`) |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`) |
 | `get_model` | Get current model and list available models for the active provider |
 | `set_model` | Set the model for subsequent requests (pass null to reset to default) |
 | `get_multiplex_provider` | Get providers configured for multiplex dispatch |
@@ -219,7 +220,8 @@ Your Application
             │   ├── CodexCliRunner      → spawns `codex exec "prompt" --json --full-auto`
             │   ├── GooseCliRunner      → spawns `goose run --quiet --no-session`
             │   ├── ClineCliRunner      → spawns `cline task --json --act --yolo`
-            │   └── ContinueCliRunner   → spawns `cn -p --format json`
+            │   ├── ContinueCliRunner   → spawns `cn -p --format json`
+            │   └── WarpCliRunner       → spawns `oz agent run --prompt "..." --output-format json`
             │
             ├── ACP Runners (persistent connection, behind feature flag)
             │   └── CopilotHeadlessRunner → NDJSON/JSON-RPC to `copilot --acp`

@@ -289,6 +289,22 @@ async fn e2e_continue_cli() {
     test_provider_stream(&runner).await;
 }
 
+#[tokio::test]
+async fn e2e_warp_cli() {
+    if !runner_enabled("warp_cli") {
+        eprintln!("SKIP e2e_warp_cli (set EMBACLE_E2E_WARP_CLI=1)");
+        return;
+    }
+    let path = resolve_or_skip(CliRunnerType::WarpCli);
+    if !path.exists() {
+        return;
+    }
+    let config = RunnerConfig::new(path).with_timeout(E2E_TIMEOUT);
+    let runner = embacle::WarpCliRunner::new(config);
+    test_provider_complete(&runner).await;
+    test_provider_stream(&runner).await;
+}
+
 // ============================================================================
 // Copilot Headless (ACP) tests — requires copilot-headless feature
 // ============================================================================

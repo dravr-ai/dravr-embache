@@ -34,6 +34,8 @@ pub enum CliRunnerType {
     ClineCli,
     /// Continue CLI (`cn`)
     ContinueCli,
+    /// Warp terminal CLI (`oz`)
+    WarpCli,
 }
 
 impl CliRunnerType {
@@ -50,6 +52,7 @@ impl CliRunnerType {
             Self::GooseCli => "goose",
             Self::ClineCli => "cline",
             Self::ContinueCli => "cn",
+            Self::WarpCli => "oz",
         }
     }
 
@@ -66,6 +69,7 @@ impl CliRunnerType {
             Self::GooseCli => "GOOSE_CLI_BINARY",
             Self::ClineCli => "CLINE_CLI_BINARY",
             Self::ContinueCli => "CONTINUE_CLI_BINARY",
+            Self::WarpCli => "WARP_CLI_BINARY",
         }
     }
 }
@@ -82,6 +86,7 @@ impl fmt::Display for CliRunnerType {
             Self::GooseCli => write!(f, "goose_cli"),
             Self::ClineCli => write!(f, "cline_cli"),
             Self::ContinueCli => write!(f, "continue_cli"),
+            Self::WarpCli => write!(f, "warp_cli"),
         }
     }
 }
@@ -270,6 +275,7 @@ mod tests {
         assert_eq!(CliRunnerType::GooseCli.binary_name(), "goose");
         assert_eq!(CliRunnerType::ClineCli.binary_name(), "cline");
         assert_eq!(CliRunnerType::ContinueCli.binary_name(), "cn");
+        assert_eq!(CliRunnerType::WarpCli.binary_name(), "oz");
     }
 
     #[test]
@@ -299,6 +305,7 @@ mod tests {
             CliRunnerType::ContinueCli.env_override_key(),
             "CONTINUE_CLI_BINARY"
         );
+        assert_eq!(CliRunnerType::WarpCli.env_override_key(), "WARP_CLI_BINARY");
     }
 
     #[test]
@@ -312,5 +319,6 @@ mod tests {
         assert_eq!(format!("{}", CliRunnerType::GooseCli), "goose_cli");
         assert_eq!(format!("{}", CliRunnerType::ClineCli), "cline_cli");
         assert_eq!(format!("{}", CliRunnerType::ContinueCli), "continue_cli");
+        assert_eq!(format!("{}", CliRunnerType::WarpCli), "warp_cli");
     }
 }

@@ -24,6 +24,7 @@ const CODEX_CLI_MIN_VERSION: &str = "0.1.0";
 const GOOSE_CLI_MIN_VERSION: &str = "1.0.0";
 const CLINE_CLI_MIN_VERSION: &str = "2.0.0";
 const CONTINUE_CLI_MIN_VERSION: &str = "1.0.0";
+const WARP_CLI_MIN_VERSION: &str = "0.1.0";
 
 /// Detected capabilities of a CLI runner binary
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,7 +113,8 @@ async fn detect_version(
         | CliRunnerType::CodexCli
         | CliRunnerType::GooseCli
         | CliRunnerType::ClineCli
-        | CliRunnerType::ContinueCli => "--version",
+        | CliRunnerType::ContinueCli
+        | CliRunnerType::WarpCli => "--version",
     };
 
     let output = Command::new(binary_path)
@@ -180,6 +182,7 @@ const fn minimum_version(runner_type: CliRunnerType) -> (u32, u32, u32) {
         CliRunnerType::GooseCli => parse_const_version(GOOSE_CLI_MIN_VERSION),
         CliRunnerType::ClineCli => parse_const_version(CLINE_CLI_MIN_VERSION),
         CliRunnerType::ContinueCli => parse_const_version(CONTINUE_CLI_MIN_VERSION),
+        CliRunnerType::WarpCli => parse_const_version(WARP_CLI_MIN_VERSION),
     }
 }
 
@@ -235,8 +238,10 @@ const fn capabilities_for_runner(runner_type: CliRunnerType) -> (bool, bool, boo
         | CliRunnerType::GeminiCli
         | CliRunnerType::GooseCli
         | CliRunnerType::ClineCli => (true, true, false, true),
-        // OpenCode, Continue CLI: JSON output, no streaming, session resume
-        CliRunnerType::OpenCode | CliRunnerType::ContinueCli => (true, false, false, true),
+        // OpenCode, Continue CLI, Warp oz: JSON output, no streaming, session resume
+        CliRunnerType::OpenCode | CliRunnerType::ContinueCli | CliRunnerType::WarpCli => {
+            (true, false, false, true)
+        }
         // Codex CLI: --json (JSONL), streaming via JSONL events
         CliRunnerType::CodexCli => (true, true, false, false),
     }

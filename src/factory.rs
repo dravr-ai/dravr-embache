@@ -11,7 +11,7 @@ use crate::discovery::resolve_binary;
 use crate::types::{LlmProvider, RunnerError};
 use crate::{
     ClaudeCodeRunner, ClineCliRunner, CodexCliRunner, ContinueCliRunner, CopilotRunner,
-    CursorAgentRunner, GeminiCliRunner, GooseCliRunner, OpenCodeRunner,
+    CursorAgentRunner, GeminiCliRunner, GooseCliRunner, OpenCodeRunner, WarpCliRunner,
 };
 
 /// Create an `LlmProvider` instance for the given runner type
@@ -42,6 +42,7 @@ pub async fn create_runner(
         CliRunnerType::GooseCli => Box::new(GooseCliRunner::new(config)),
         CliRunnerType::ClineCli => Box::new(ClineCliRunner::new(config)),
         CliRunnerType::ContinueCli => Box::new(ContinueCliRunner::new(config)),
+        CliRunnerType::WarpCli => Box::new(WarpCliRunner::new(config)),
     };
 
     Ok(runner)
@@ -58,6 +59,7 @@ pub const ALL_PROVIDERS: &[CliRunnerType] = &[
     CliRunnerType::GooseCli,
     CliRunnerType::ClineCli,
     CliRunnerType::ContinueCli,
+    CliRunnerType::WarpCli,
 ];
 
 /// Parse a provider name string into a `CliRunnerType`
@@ -77,13 +79,14 @@ pub fn parse_runner_type(s: &str) -> Option<CliRunnerType> {
         "continue" | "continue_cli" | "continuecli" | "continue-cli" | "cn" => {
             Some(CliRunnerType::ContinueCli)
         }
+        "warp" | "warp_cli" | "warpcli" | "warp-cli" | "oz" => Some(CliRunnerType::WarpCli),
         _ => None,
     }
 }
 
 /// Format the list of valid provider names for error messages
 pub const fn valid_provider_names() -> &'static str {
-    "claude_code, copilot, cursor_agent, opencode, gemini_cli, codex_cli, goose_cli, cline_cli, continue_cli"
+    "claude_code, copilot, cursor_agent, opencode, gemini_cli, codex_cli, goose_cli, cline_cli, continue_cli, warp_cli"
 }
 
 #[cfg(test)]
@@ -122,6 +125,7 @@ mod tests {
             parse_runner_type("continue_cli"),
             Some(CliRunnerType::ContinueCli)
         );
+        assert_eq!(parse_runner_type("warp_cli"), Some(CliRunnerType::WarpCli));
     }
 
     #[test]
@@ -140,6 +144,8 @@ mod tests {
             Some(CliRunnerType::ContinueCli)
         );
         assert_eq!(parse_runner_type("cn"), Some(CliRunnerType::ContinueCli));
+        assert_eq!(parse_runner_type("warp"), Some(CliRunnerType::WarpCli));
+        assert_eq!(parse_runner_type("oz"), Some(CliRunnerType::WarpCli));
     }
 
     #[test]
@@ -158,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn all_providers_has_nine_entries() {
-        assert_eq!(ALL_PROVIDERS.len(), 9);
+    fn all_providers_has_ten_entries() {
+        assert_eq!(ALL_PROVIDERS.len(), 10);
     }
 }

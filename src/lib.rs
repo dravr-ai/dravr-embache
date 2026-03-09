@@ -8,7 +8,7 @@
 //!
 //! Standalone library providing pluggable [`LlmProvider`](types::LlmProvider)
 //! implementations that delegate to CLI tools (Claude Code, Copilot, Cursor Agent,
-//! `OpenCode`, Gemini, Codex, Goose, Cline, Continue) and ACP (Copilot Headless) for LLM completions.
+//! `OpenCode`, Gemini, Codex, Goose, Cline, Continue, Warp) and ACP (Copilot Headless) for LLM completions.
 //!
 //! CLI runners wrap a binary, build prompts from [`ChatMessage`](types::ChatMessage)
 //! sequences, parse JSON output, and manage session continuity. The Copilot Headless
@@ -58,6 +58,7 @@
 //! - [`goose_cli`] — Goose CLI runner
 //! - [`cline_cli`] — Cline CLI runner
 //! - [`continue_cli`] — Continue CLI runner
+//! - [`warp_cli`] — Warp terminal `oz` CLI runner
 //! - `copilot_headless` — GitHub Copilot Headless (ACP) runner (requires `copilot-headless` feature)
 
 /// Core types: traits, messages, requests, responses, and errors
@@ -119,6 +120,8 @@ pub mod stream;
 pub mod structured_output;
 /// Text-based tool simulation for CLI runners without native function calling
 pub mod tool_simulation;
+/// Warp terminal `oz` CLI runner
+pub mod warp_cli;
 
 // Copilot Headless modules (behind feature flag)
 /// Configuration for the Copilot Headless (ACP) provider
@@ -152,6 +155,7 @@ pub use metrics::{MetricsProvider, MetricsReport};
 pub use opencode::OpenCodeRunner;
 pub use quality_gate::{QualityGateProvider, QualityPolicy};
 pub use structured_output::{request_structured_output, StructuredOutputRequest};
+pub use warp_cli::WarpCliRunner;
 
 // Core tool calling type re-exports
 pub use types::{ResponseFormat, ToolCallRequest, ToolChoice, ToolDefinition};

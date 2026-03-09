@@ -118,6 +118,7 @@ pub async fn check_readiness(
         CliRunnerType::GooseCli => check_version_probe_unverified(binary_path, "goose").await,
         CliRunnerType::ClineCli => check_version_probe_unverified(binary_path, "cline").await,
         CliRunnerType::ContinueCli => check_version_probe_unverified(binary_path, "cn").await,
+        CliRunnerType::WarpCli => check_version_probe_unverified(binary_path, "oz").await,
     }
 }
 
