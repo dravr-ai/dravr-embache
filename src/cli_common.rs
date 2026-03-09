@@ -114,7 +114,9 @@ impl CliRunnerBase {
 
     /// Check CLI exit code and return an error if non-zero.
     ///
-    /// Logs stderr/stdout previews and constructs a standard error message.
+    /// Logs output byte lengths (not content) and constructs a standard error message.
+    /// The first line of stderr is included in the error for diagnostics, with
+    /// the remainder omitted to avoid leaking prompt content or tool output.
     ///
     /// # Errors
     ///
@@ -128,21 +130,18 @@ impl CliRunnerBase {
             return Ok(());
         }
 
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
         warn!(
             exit_code = output.exit_code,
             stdout_len = output.stdout.len(),
             stderr_len = output.stderr.len(),
-            stdout_preview = %stdout.chars().take(500).collect::<String>(),
-            stderr_preview = %stderr.chars().take(500).collect::<String>(),
             "{runner_name} CLI failed"
         );
-        let detail = if stderr.is_empty() { &stdout } else { &stderr };
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let first_line = stderr.lines().next().unwrap_or("(no output)");
         Err(RunnerError::external_service(
             runner_name,
             format!(
-                "{runner_name} exited with code {}: {detail}",
+                "{runner_name} exited with code {}: {first_line}",
                 output.exit_code
             ),
         ))

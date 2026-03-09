@@ -31,30 +31,43 @@ impl McpTransport for StdioTransport {
 
         debug!("Stdio transport ready, waiting for JSON-RPC messages on stdin");
 
-        while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() {
-                continue;
-            }
+        loop {
+            match lines.next_line().await {
+                Ok(Some(line)) => {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
 
-            let request: JsonRpcRequest = match serde_json::from_str(&line) {
-                Ok(req) => req,
-                Err(e) => {
-                    error!(error = %e, "Failed to parse JSON-RPC request");
-                    let resp =
-                        JsonRpcResponse::error(None, PARSE_ERROR, format!("Parse error: {e}"));
-                    write_response(&mut stdout, &resp).await?;
-                    continue;
+                    let request: JsonRpcRequest = match serde_json::from_str(&line) {
+                        Ok(req) => req,
+                        Err(e) => {
+                            error!(error = %e, "Failed to parse JSON-RPC request");
+                            let resp = JsonRpcResponse::error(
+                                None,
+                                PARSE_ERROR,
+                                format!("Parse error: {e}"),
+                            );
+                            write_response(&mut stdout, &resp).await?;
+                            continue;
+                        }
+                    };
+
+                    debug!(method = %request.method, "Handling MCP request");
+
+                    if let Some(response) = server.handle_request(request).await {
+                        write_response(&mut stdout, &response).await?;
+                    }
                 }
-            };
-
-            debug!(method = %request.method, "Handling MCP request");
-
-            if let Some(response) = server.handle_request(request).await {
-                write_response(&mut stdout, &response).await?;
+                Ok(None) => {
+                    debug!("Stdin closed, shutting down stdio transport");
+                    break;
+                }
+                Err(e) => {
+                    error!(error = %e, "Stdin read error, shutting down stdio transport");
+                    return Err(RunnerError::internal(format!("stdin read error: {e}")));
+                }
             }
         }
-
-        debug!("Stdin closed, shutting down stdio transport");
         Ok(())
     }
 }

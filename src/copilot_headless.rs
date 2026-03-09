@@ -21,6 +21,12 @@ use crate::types::{
     StreamChunk, TokenUsage,
 };
 
+/// Maximum time to wait for an ACP prompt to complete (5 minutes).
+///
+/// Copilot headless sessions can involve multi-step tool calling, so this is
+/// more generous than the default CLI runner timeout (120s).
+const ACP_PROMPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
 // ---------------------------------------------------------------------------
 // NDJSON transport
 // ---------------------------------------------------------------------------
@@ -637,13 +643,22 @@ impl CopilotHeadlessRunner {
             )
             .await?;
 
-        let result = collect_complete(
-            &mut transport,
-            prompt_id,
-            model,
-            self.config.permission_policy,
+        let result = tokio::time::timeout(
+            ACP_PROMPT_TIMEOUT,
+            collect_complete(
+                &mut transport,
+                prompt_id,
+                model,
+                self.config.permission_policy,
+            ),
         )
-        .await;
+        .await
+        .map_err(|_| {
+            RunnerError::timeout(format!(
+                "copilot-acp: prompt timed out after {}s",
+                ACP_PROMPT_TIMEOUT.as_secs()
+            ))
+        })?;
         let _ = child.kill().await;
 
         let (response, tool_calls) = result?;
@@ -709,13 +724,22 @@ impl LlmProvider for CopilotHeadlessRunner {
             )
             .await?;
 
-        let result = collect_complete(
-            &mut transport,
-            prompt_id,
-            model,
-            self.config.permission_policy,
+        let result = tokio::time::timeout(
+            ACP_PROMPT_TIMEOUT,
+            collect_complete(
+                &mut transport,
+                prompt_id,
+                model,
+                self.config.permission_policy,
+            ),
         )
-        .await;
+        .await
+        .map_err(|_| {
+            RunnerError::timeout(format!(
+                "copilot-acp: prompt timed out after {}s",
+                ACP_PROMPT_TIMEOUT.as_secs()
+            ))
+        })?;
         let _ = child.kill().await;
         result.map(|(response, _tool_calls)| response)
     }
@@ -748,9 +772,22 @@ impl LlmProvider for CopilotHeadlessRunner {
         let policy = self.config.permission_policy;
 
         tokio::spawn(async move {
-            let result = collect_streaming(&mut transport, prompt_id, &chunk_tx, policy).await;
-            if let Err(e) = result {
-                let _ = chunk_tx.send(Err(e));
+            let result = tokio::time::timeout(
+                ACP_PROMPT_TIMEOUT,
+                collect_streaming(&mut transport, prompt_id, &chunk_tx, policy),
+            )
+            .await;
+            match result {
+                Ok(Err(e)) => {
+                    let _ = chunk_tx.send(Err(e));
+                }
+                Err(_) => {
+                    let _ = chunk_tx.send(Err(RunnerError::timeout(format!(
+                        "copilot-acp: prompt timed out after {}s",
+                        ACP_PROMPT_TIMEOUT.as_secs()
+                    ))));
+                }
+                Ok(Ok(())) => {}
             }
             let _ = child.kill().await;
         });
