@@ -22,6 +22,8 @@ exclude = [".claude/", ".githooks/", ".github/", "scripts/", "AGENTS.md", "crate
 default = []
 # Enable Copilot Headless provider (ACP protocol via copilot --acp)
 copilot-headless = ["dep:agent-client-protocol-schema", "tokio/sync"]
+# Enable OpenAI-compatible HTTP API client runner (reqwest-based)
+openai-api = ["dep:reqwest", "tokio/sync"]
 
 [dependencies]
 async-trait = "0.1"
@@ -36,6 +38,9 @@ which = "7"
 
 # Optional: ACP schema types for Copilot Headless (copilot --acp)
 agent-client-protocol-schema = { version = "0.11", optional = true }
+
+# Optional: HTTP client for OpenAI-compatible API runner
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"], optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.45", features = ["full", "test-util"] }

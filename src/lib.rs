@@ -119,6 +119,7 @@
 //! - [`cline_cli`] — Cline CLI runner
 //! - [`continue_cli`] — Continue CLI runner
 //! - [`warp_cli`] — Warp terminal `oz` CLI runner
+//! - `openai_api` — OpenAI-compatible HTTP API client (requires `openai-api` feature)
 //! - `copilot_headless` — GitHub Copilot Headless (ACP) runner (requires `copilot-headless` feature)
 
 /// Core types: traits, messages, requests, responses, and errors
@@ -183,6 +184,11 @@ pub mod tool_simulation;
 /// Warp terminal `oz` CLI runner
 pub mod warp_cli;
 
+// OpenAI API module (behind feature flag)
+/// OpenAI-compatible HTTP API client runner
+#[cfg(feature = "openai-api")]
+pub mod openai_api;
+
 // Copilot Headless modules (behind feature flag)
 /// Configuration for the Copilot Headless (ACP) provider
 #[cfg(feature = "copilot-headless")]
@@ -226,6 +232,10 @@ pub use tool_simulation::{
     inject_tool_catalog, parse_tool_call_blocks, strip_tool_call_blocks, FunctionCall,
     FunctionDeclaration, FunctionResponse, TextToolHandler, TextToolResponse,
 };
+
+// OpenAI API re-exports (behind feature flag)
+#[cfg(feature = "openai-api")]
+pub use openai_api::{OpenAiApiConfig, OpenAiApiRunner};
 
 // Copilot Headless re-exports (behind feature flag)
 #[cfg(feature = "copilot-headless")]
