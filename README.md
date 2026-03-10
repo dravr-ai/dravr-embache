@@ -205,6 +205,59 @@ EMBACLE_API_KEY=my-secret embacle-server
 curl http://localhost:3000/v1/models -H "Authorization: Bearer my-secret"
 ```
 
+## Docker
+
+Pull the image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/dravr-ai/embacle:latest
+```
+
+The image includes `embacle-server` and `embacle-mcp` with Node.js pre-installed for adding CLI backends.
+
+### Adding a CLI Backend
+
+The base image doesn't include CLI tools. Install them in a derived image:
+
+```dockerfile
+FROM ghcr.io/dravr-ai/embacle
+USER root
+RUN npm install -g @anthropic-ai/claude-code
+USER embacle
+```
+
+Build and run:
+
+```bash
+docker build -t my-embacle .
+docker run -p 3000:3000 my-embacle --provider claude_code
+```
+
+### Auth and Configuration
+
+CLI tools store auth tokens in their config directories. Mount them from the host, or set provider-specific env vars:
+
+```bash
+# Mount Claude Code auth from host
+docker run -p 3000:3000 \
+  -v ~/.claude:/home/embacle/.claude:ro \
+  my-embacle --provider claude_code
+
+# Or pass env vars if the CLI supports them
+docker run -p 3000:3000 \
+  -e GITHUB_TOKEN=ghp_... \
+  -e EMBACLE_API_KEY=my-secret \
+  my-embacle --provider copilot
+```
+
+### Running embacle-mcp
+
+Override the entrypoint to run the MCP server instead:
+
+```bash
+docker run --entrypoint embacle-mcp ghcr.io/dravr-ai/embacle --provider copilot
+```
+
 ## Architecture
 
 ```

@@ -1,0 +1,9 @@
+# ABOUTME: Excludes unnecessary files from Docker build context
+# ABOUTME: Keeps context small for faster builds
+
+target/
+.git/
+.github/
+.githooks/
+.claude/
+scripts/
