@@ -26,6 +26,12 @@ Instead of integrating with LLM APIs directly (which require API keys, SDKs, and
 | Continue CLI | `cn` | JSON output, single-shot completions |
 | Warp | `oz` | NDJSON output, conversation resume |
 
+### HTTP API Runners (feature-flagged)
+
+| Runner | Feature Flag | Features |
+|--------|-------------|----------|
+| OpenAI API | `openai-api` | Any OpenAI-compatible endpoint (OpenAI, Groq, Gemini, Ollama, vLLM), streaming, tool calling, model discovery |
+
 ### ACP Runners (persistent connection)
 
 | Runner | Feature Flag | Features |
@@ -38,7 +44,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-embacle = "0.8"
+embacle = "0.9"
 ```
 
 Use a CLI runner:
@@ -63,13 +69,51 @@ async fn main() -> Result<(), embacle::types::RunnerError> {
 }
 ```
 
+### OpenAI API (feature flag)
+
+Enable the `openai-api` feature for HTTP-based communication with any OpenAI-compatible endpoint:
+
+```toml
+[dependencies]
+embacle = { version = "0.9", features = ["openai-api"] }
+```
+
+```rust
+use embacle::{OpenAiApiConfig, OpenAiApiRunner};
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
+
+#[tokio::main]
+async fn main() -> Result<(), embacle::types::RunnerError> {
+    // Reads OPENAI_API_BASE_URL, OPENAI_API_KEY, OPENAI_API_MODEL from env
+    let config = OpenAiApiConfig::from_env();
+    let runner = OpenAiApiRunner::new(config).await;
+
+    let request = ChatRequest::new(vec![
+        ChatMessage::user("What is the capital of France?"),
+    ]);
+
+    let response = runner.complete(&request).await?;
+    println!("{}", response.content);
+    Ok(())
+}
+```
+
+Works with any OpenAI-compatible endpoint — OpenAI, Groq, Google Gemini, Ollama, vLLM, and more. To inject a shared HTTP client (e.g. from a connection pool), use `OpenAiApiRunner::with_client(config, client)`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_BASE_URL` | `https://api.openai.com/v1` | API base URL |
+| `OPENAI_API_KEY` | *(none)* | Bearer token for authentication |
+| `OPENAI_API_MODEL` | `gpt-5.4` | Default model for completions |
+| `OPENAI_API_TIMEOUT_SECS` | `300` | HTTP request timeout |
+
 ### Copilot Headless (feature flag)
 
 Enable the `copilot-headless` feature for ACP-based communication with SDK-managed tool calling:
 
 ```toml
 [dependencies]
-embacle = { version = "0.8", features = ["copilot-headless"] }
+embacle = { version = "0.9", features = ["copilot-headless"] }
 ```
 
 ```rust
@@ -118,7 +162,7 @@ embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
 | Tool | Description |
 |------|-------------|
 | `get_provider` | Get active LLM provider and list available providers |
-| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`) |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`, `openai_api`) |
 | `get_model` | Get current model and list available models for the active provider |
 | `set_model` | Set the model for subsequent requests (pass null to reset to default) |
 | `get_multiplex_provider` | Get providers configured for multiplex dispatch |
@@ -175,7 +219,7 @@ curl http://localhost:3000/v1/chat/completions \
 # Default provider
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}'
+  -d '{"model": "gpt-5.4", "messages": [{"role": "user", "content": "hello"}]}'
 ```
 
 ### Multiplex
@@ -275,6 +319,9 @@ Your Application
             │   ├── ClineCliRunner      → spawns `cline task --json --act --yolo`
             │   ├── ContinueCliRunner   → spawns `cn -p --format json`
             │   └── WarpCliRunner       → spawns `oz agent run --prompt "..." --output-format json`
+            │
+            ├── HTTP API Runners (behind feature flag)
+            │   └── OpenAiApiRunner       → reqwest to any OpenAI-compatible endpoint
             │
             ├── ACP Runners (persistent connection, behind feature flag)
             │   └── CopilotHeadlessRunner → NDJSON/JSON-RPC to `copilot --acp`
