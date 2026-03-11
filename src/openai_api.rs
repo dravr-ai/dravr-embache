@@ -345,6 +345,10 @@ pub struct OpenAiApiRunner {
 impl OpenAiApiRunner {
     /// Create a new runner, optionally discovering available models
     ///
+    /// Builds an internal HTTP client using the configured timeout.
+    /// To inject an externally-managed HTTP client (e.g. a shared connection pool),
+    /// use [`with_client`](Self::with_client) instead.
+    ///
     /// Attempts to fetch the model list from the `/v1/models` endpoint.
     /// Falls back to the configured default model on failure.
     pub async fn new(config: OpenAiApiConfig) -> Self {
@@ -356,6 +360,18 @@ impl OpenAiApiRunner {
                 reqwest::Client::new()
             });
 
+        Self::with_client(config, client).await
+    }
+
+    /// Create a new runner with an externally-provided HTTP client
+    ///
+    /// Use this when the caller owns a shared `reqwest::Client` (e.g. a pooled
+    /// singleton with centralized timeout/TLS configuration). The runner will
+    /// use the provided client for all HTTP requests instead of creating its own.
+    ///
+    /// Attempts to fetch the model list from the `/v1/models` endpoint.
+    /// Falls back to the configured default model on failure.
+    pub async fn with_client(config: OpenAiApiConfig, client: reqwest::Client) -> Self {
         let models = discover_models(&client, &config).await;
         let models = if models.is_empty() {
             vec![config.model.clone()]
