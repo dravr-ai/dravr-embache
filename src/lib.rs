@@ -137,6 +137,7 @@
 //! - [`cline_cli`] — Cline CLI runner
 //! - [`continue_cli`] — Continue CLI runner
 //! - [`warp_cli`] — Warp terminal `oz` CLI runner
+//! - [`kiro_cli`] — Kiro CLI runner
 //!
 //! ### Feature-Flagged Runners
 //!
@@ -182,6 +183,8 @@ pub mod fallback;
 pub mod gemini_cli;
 /// Goose CLI runner
 pub mod goose_cli;
+/// Kiro CLI runner
+pub mod kiro_cli;
 /// MCP tool definition to text-tool-simulation bridge
 pub mod mcp_tool_bridge;
 /// Cost/latency normalization decorator
@@ -237,6 +240,7 @@ pub use factory::{create_runner, parse_runner_type, valid_provider_names, ALL_PR
 pub use fallback::FallbackProvider;
 pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
+pub use kiro_cli::KiroCliRunner;
 pub use mcp_tool_bridge::{McpToolDefinition, McpToolExecutor};
 pub use metrics::{MetricsProvider, MetricsReport};
 pub use opencode::OpenCodeRunner;

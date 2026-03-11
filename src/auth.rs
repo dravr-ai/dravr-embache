@@ -119,6 +119,7 @@ pub async fn check_readiness(
         CliRunnerType::ClineCli => check_version_probe_unverified(binary_path, "cline").await,
         CliRunnerType::ContinueCli => check_version_probe_unverified(binary_path, "cn").await,
         CliRunnerType::WarpCli => check_version_probe_unverified(binary_path, "oz").await,
+        CliRunnerType::KiroCli => check_version_probe_unverified(binary_path, "kiro-cli").await,
     }
 }
 

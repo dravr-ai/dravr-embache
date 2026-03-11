@@ -7,7 +7,7 @@
 //! # CLI Runner Common Infrastructure
 //!
 //! Shared base struct and delegation macro that eliminate boilerplate across
-//! the 10 CLI runner implementations. Each runner wraps [`CliRunnerBase`] and
+//! the 11 CLI runner implementations. Each runner wraps [`CliRunnerBase`] and
 //! uses [`delegate_provider_base!`] to auto-generate the repetitive
 //! [`LlmProvider`](crate::types::LlmProvider) trait methods.
 

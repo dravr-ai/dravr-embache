@@ -25,6 +25,7 @@ const GOOSE_CLI_MIN_VERSION: &str = "1.0.0";
 const CLINE_CLI_MIN_VERSION: &str = "2.0.0";
 const CONTINUE_CLI_MIN_VERSION: &str = "1.0.0";
 const WARP_CLI_MIN_VERSION: &str = "0.1.0";
+const KIRO_CLI_MIN_VERSION: &str = "1.0.0";
 
 /// Detected capabilities of a CLI runner binary
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,7 +115,8 @@ async fn detect_version(
         | CliRunnerType::GooseCli
         | CliRunnerType::ClineCli
         | CliRunnerType::ContinueCli
-        | CliRunnerType::WarpCli => "--version",
+        | CliRunnerType::WarpCli
+        | CliRunnerType::KiroCli => "--version",
     };
 
     let output = Command::new(binary_path)
@@ -183,6 +185,7 @@ const fn minimum_version(runner_type: CliRunnerType) -> (u32, u32, u32) {
         CliRunnerType::ClineCli => parse_const_version(CLINE_CLI_MIN_VERSION),
         CliRunnerType::ContinueCli => parse_const_version(CONTINUE_CLI_MIN_VERSION),
         CliRunnerType::WarpCli => parse_const_version(WARP_CLI_MIN_VERSION),
+        CliRunnerType::KiroCli => parse_const_version(KIRO_CLI_MIN_VERSION),
     }
 }
 
@@ -244,6 +247,8 @@ const fn capabilities_for_runner(runner_type: CliRunnerType) -> (bool, bool, boo
         }
         // Codex CLI: --json (JSONL), streaming via JSONL events
         CliRunnerType::CodexCli => (true, true, false, false),
+        // Kiro CLI: plain text output (no JSON), no streaming, session resume via --resume
+        CliRunnerType::KiroCli => (false, false, false, true),
     }
 }
 

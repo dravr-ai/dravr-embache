@@ -46,7 +46,8 @@ const E2E_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Resolve a binary or skip.
 fn resolve_or_skip(runner_type: CliRunnerType) -> PathBuf {
-    match resolve_binary(runner_type.binary_name(), None) {
+    let env_override = std::env::var(runner_type.env_override_key()).ok();
+    match resolve_binary(runner_type.binary_name(), env_override.as_deref()) {
         Ok(p) => p,
         Err(e) => {
             eprintln!(
@@ -302,6 +303,23 @@ async fn e2e_warp_cli() {
     let config = RunnerConfig::new(path).with_timeout(E2E_TIMEOUT);
     let runner = embacle::WarpCliRunner::new(config);
     test_provider_complete(&runner).await;
+    test_provider_stream(&runner).await;
+}
+
+#[tokio::test]
+async fn e2e_kiro_cli() {
+    if !runner_enabled("kiro_cli") {
+        eprintln!("SKIP e2e_kiro_cli (set EMBACLE_E2E_KIRO_CLI=1)");
+        return;
+    }
+    let path = resolve_or_skip(CliRunnerType::KiroCli);
+    if !path.exists() {
+        return;
+    }
+    let config = RunnerConfig::new(path).with_timeout(E2E_TIMEOUT);
+    let runner = embacle::KiroCliRunner::new(config);
+    test_provider_complete(&runner).await;
+    // Kiro does not support streaming natively; complete_stream wraps complete
     test_provider_stream(&runner).await;
 }
 
