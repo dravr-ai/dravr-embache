@@ -48,6 +48,18 @@ pub enum ErrorKind {
     Config,
 }
 
+impl ErrorKind {
+    /// Whether this error category represents a transient failure worth retrying.
+    ///
+    /// Transient errors (timeouts, external service issues) may succeed on a
+    /// subsequent attempt. Permanent errors (config, auth, missing binary) will
+    /// not benefit from retries.
+    #[must_use]
+    pub const fn is_transient(self) -> bool {
+        matches!(self, Self::Timeout | Self::ExternalService)
+    }
+}
+
 impl RunnerError {
     /// Create an internal error
     pub fn internal(message: impl Into<String>) -> Self {
@@ -593,6 +605,16 @@ pub trait LlmProvider: Send + Sync {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn is_transient_classification() {
+        assert!(ErrorKind::Timeout.is_transient());
+        assert!(ErrorKind::ExternalService.is_transient());
+        assert!(!ErrorKind::Internal.is_transient());
+        assert!(!ErrorKind::BinaryNotFound.is_transient());
+        assert!(!ErrorKind::AuthFailure.is_transient());
+        assert!(!ErrorKind::Config.is_transient());
+    }
 
     #[test]
     fn tool_call_request_serde_round_trip() {

@@ -237,7 +237,7 @@ pub use copilot::{copilot_fallback_models, discover_copilot_models, CopilotRunne
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
 pub use factory::{create_runner, parse_runner_type, valid_provider_names, ALL_PROVIDERS};
-pub use fallback::FallbackProvider;
+pub use fallback::{FallbackProvider, RetryConfig};
 pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
 pub use kiro_cli::KiroCliRunner;

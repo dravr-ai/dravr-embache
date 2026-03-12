@@ -83,7 +83,9 @@ pub(crate) async fn read_stderr_capped(stream: Option<ChildStderr>, limit: usize
 /// Returns `RunnerError` if:
 /// - The process cannot be spawned
 /// - The process exceeds the timeout (killed and reported)
-/// - The process exits with a non-zero code
+///
+/// Note: a non-zero exit code is returned inside `CliOutput::exit_code`
+/// as data, not as an error. Callers decide how to handle it.
 pub async fn run_cli_command(
     cmd: &mut Command,
     timeout: Duration,
