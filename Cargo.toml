@@ -26,6 +26,8 @@ copilot-headless = ["dep:agent-client-protocol-schema", "tokio/sync"]
 openai-api = ["dep:reqwest", "tokio/sync"]
 # Enable TOML-based configuration file loading
 config-file = ["dep:toml", "dep:dirs"]
+# Enable OpenTelemetry metrics export
+otel = ["dep:opentelemetry", "dep:opentelemetry_sdk"]
 
 [dependencies]
 async-trait = "0.1"
@@ -47,6 +49,10 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 # Optional: TOML config file support
 toml = { version = "0.8", optional = true }
 dirs = { version = "6", optional = true }
+
+# Optional: OpenTelemetry metrics export
+opentelemetry = { version = "0.28", optional = true }
+opentelemetry_sdk = { version = "0.28", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.45", features = ["full", "test-util"] }

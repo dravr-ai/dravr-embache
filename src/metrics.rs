@@ -1,5 +1,5 @@
-// ABOUTME: Decorator wrapping any LlmProvider to measure latency, token usage, and call counts
-// ABOUTME: Provides MetricsReport snapshots for cost and performance normalization
+// ABOUTME: Decorator wrapping any LlmProvider to measure latency, token usage, cost, and call counts
+// ABOUTME: Provides MetricsReport snapshots for cost and performance normalization, optional OTel export
 //
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 dravr.ai
@@ -10,9 +10,21 @@
 //! measuring per-call latency and token usage. Callers can retrieve a
 //! [`MetricsReport`] snapshot at any time via [`MetricsProvider::report()`].
 //!
+//! ## Cost Tracking
+//!
+//! Attach a [`PricingTable`] via [`MetricsProvider::with_pricing()`] or use
+//! [`MetricsProvider::with_default_pricing()`] for built-in model prices.
+//! Costs are computed from token counts and accumulated in the report.
+//!
+//! ## OpenTelemetry (feature: `otel`)
+//!
+//! When built with `--features otel`, instruments are created via the
+//! global meter `embacle` and recorded on each `complete()` call.
+//!
 //! Token estimation: when `TokenUsage` is not provided by the inner provider,
 //! tokens are estimated at ~4 characters per token.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -26,6 +38,76 @@ use crate::types::{
 /// Characters-per-token estimate used when the provider does not report usage
 const CHARS_PER_TOKEN_ESTIMATE: u32 = 4;
 
+/// Per-model token pricing (cost per 1000 tokens)
+#[derive(Debug, Clone)]
+pub struct TokenPricing {
+    /// Cost per 1000 prompt (input) tokens
+    pub prompt_price_per_1k: f64,
+    /// Cost per 1000 completion (output) tokens
+    pub completion_price_per_1k: f64,
+}
+
+/// Mapping from model name to pricing
+pub type PricingTable = HashMap<String, TokenPricing>;
+
+/// Built-in pricing table with known model prices (approximate, USD)
+pub fn default_pricing_table() -> PricingTable {
+    let mut table = PricingTable::new();
+    // Claude models
+    table.insert(
+        "opus".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.015,
+            completion_price_per_1k: 0.075,
+        },
+    );
+    table.insert(
+        "sonnet".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.003,
+            completion_price_per_1k: 0.015,
+        },
+    );
+    table.insert(
+        "haiku".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.00025,
+            completion_price_per_1k: 0.00125,
+        },
+    );
+    // GPT models
+    table.insert(
+        "gpt-5.4".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.005,
+            completion_price_per_1k: 0.015,
+        },
+    );
+    table.insert(
+        "gpt-4o".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.005,
+            completion_price_per_1k: 0.015,
+        },
+    );
+    // Gemini models
+    table.insert(
+        "gemini-2.5-pro".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.00125,
+            completion_price_per_1k: 0.005,
+        },
+    );
+    table.insert(
+        "gemini-2.5-flash".to_owned(),
+        TokenPricing {
+            prompt_price_per_1k: 0.000_075,
+            completion_price_per_1k: 0.0003,
+        },
+    );
+    table
+}
+
 /// Accumulated metrics state protected by a mutex
 #[derive(Debug, Default)]
 struct MetricsState {
@@ -35,6 +117,7 @@ struct MetricsState {
     total_completion_tokens: u64,
     total_tokens: u64,
     errors_count: u64,
+    total_cost: f64,
 }
 
 /// Snapshot of accumulated metrics for a provider
@@ -56,9 +139,55 @@ pub struct MetricsReport {
     pub total_tokens: u64,
     /// Number of calls that returned an error
     pub errors_count: u64,
+    /// Accumulated cost in USD (0.0 if no pricing table configured)
+    pub total_cost: f64,
 }
 
-/// Decorator wrapping any `Box<dyn LlmProvider>` to collect latency and token metrics.
+/// OpenTelemetry instruments for metrics export
+#[cfg(feature = "otel")]
+struct OtelInstruments {
+    requests_total: opentelemetry::metrics::Counter<u64>,
+    requests_duration_ms: opentelemetry::metrics::Histogram<f64>,
+    tokens_prompt: opentelemetry::metrics::Counter<u64>,
+    tokens_completion: opentelemetry::metrics::Counter<u64>,
+    errors_total: opentelemetry::metrics::Counter<u64>,
+    cost_total: opentelemetry::metrics::Counter<f64>,
+}
+
+#[cfg(feature = "otel")]
+impl OtelInstruments {
+    fn new() -> Self {
+        let meter = opentelemetry::global::meter("embacle");
+        Self {
+            requests_total: meter
+                .u64_counter("embacle.requests.total")
+                .with_description("Total LLM requests")
+                .build(),
+            requests_duration_ms: meter
+                .f64_histogram("embacle.requests.duration_ms")
+                .with_description("Request duration in milliseconds")
+                .build(),
+            tokens_prompt: meter
+                .u64_counter("embacle.tokens.prompt")
+                .with_description("Total prompt tokens consumed")
+                .build(),
+            tokens_completion: meter
+                .u64_counter("embacle.tokens.completion")
+                .with_description("Total completion tokens generated")
+                .build(),
+            errors_total: meter
+                .u64_counter("embacle.errors.total")
+                .with_description("Total error count")
+                .build(),
+            cost_total: meter
+                .f64_counter("embacle.cost.total")
+                .with_description("Total cost in USD")
+                .build(),
+        }
+    }
+}
+
+/// Decorator wrapping any `Box<dyn LlmProvider>` to collect latency, token, and cost metrics.
 ///
 /// # Usage
 ///
@@ -75,6 +204,9 @@ pub struct MetricsReport {
 pub struct MetricsProvider {
     inner: Box<dyn LlmProvider>,
     state: Arc<Mutex<MetricsState>>,
+    pricing: Option<PricingTable>,
+    #[cfg(feature = "otel")]
+    otel: OtelInstruments,
 }
 
 impl MetricsProvider {
@@ -83,7 +215,21 @@ impl MetricsProvider {
         Self {
             inner,
             state: Arc::new(Mutex::new(MetricsState::default())),
+            pricing: None,
+            #[cfg(feature = "otel")]
+            otel: OtelInstruments::new(),
         }
+    }
+
+    /// Attach a custom pricing table for cost tracking
+    pub fn with_pricing(mut self, pricing: PricingTable) -> Self {
+        self.pricing = Some(pricing);
+        self
+    }
+
+    /// Attach the built-in pricing table for known models
+    pub fn with_default_pricing(self) -> Self {
+        self.with_pricing(default_pricing_table())
     }
 
     /// Return a snapshot of the current metrics
@@ -103,6 +249,7 @@ impl MetricsProvider {
             total_completion_tokens: state.total_completion_tokens,
             total_tokens: state.total_tokens,
             errors_count: state.errors_count,
+            total_cost: state.total_cost,
         }
     }
 
@@ -114,6 +261,27 @@ impl MetricsProvider {
     pub fn reset(&self) {
         let mut state = self.state.lock().expect("metrics lock poisoned");
         *state = MetricsState::default();
+    }
+
+    /// Compute cost for a single call based on token counts and model name
+    fn compute_cost(&self, model: &str, prompt_tokens: u64, completion_tokens: u64) -> f64 {
+        let Some(table) = &self.pricing else {
+            return 0.0;
+        };
+        // Try exact match first, then try substring matching for partial model names
+        let pricing = table.get(model).or_else(|| {
+            table
+                .iter()
+                .find(|(key, _)| model.contains(key.as_str()))
+                .map(|(_, v)| v)
+        });
+        let Some(pricing) = pricing else {
+            return 0.0;
+        };
+        #[allow(clippy::cast_precision_loss)]
+        let cost = (prompt_tokens as f64 * pricing.prompt_price_per_1k / 1000.0)
+            + (completion_tokens as f64 * pricing.completion_price_per_1k / 1000.0);
+        cost
     }
 }
 
@@ -156,6 +324,9 @@ impl LlmProvider for MetricsProvider {
         state.call_count += 1;
         state.total_latency_ms += elapsed_ms;
 
+        #[cfg(feature = "otel")]
+        let provider_attr = opentelemetry::KeyValue::new("provider", self.inner.name());
+
         if let Ok(response) = &result {
             let usage = response.usage.as_ref();
             let prompt_tokens = u64::from(
@@ -171,16 +342,41 @@ impl LlmProvider for MetricsProvider {
             state.total_completion_tokens += completion_tokens;
             state.total_tokens += total;
 
+            let cost = self.compute_cost(&response.model, prompt_tokens, completion_tokens);
+            state.total_cost += cost;
+
             info!(
                 provider = self.inner.name(),
-                elapsed_ms, prompt_tokens, completion_tokens, "metrics: complete() succeeded"
+                elapsed_ms, prompt_tokens, completion_tokens, cost, "metrics: complete() succeeded"
             );
+
+            #[cfg(feature = "otel")]
+            {
+                let attrs = std::slice::from_ref(&provider_attr);
+                self.otel.requests_total.add(1, attrs);
+                #[allow(clippy::cast_precision_loss)]
+                self.otel
+                    .requests_duration_ms
+                    .record(elapsed_ms as f64, attrs);
+                self.otel.tokens_prompt.add(prompt_tokens, attrs);
+                self.otel.tokens_completion.add(completion_tokens, attrs);
+                if cost > 0.0 {
+                    self.otel.cost_total.add(cost, attrs);
+                }
+            }
         } else {
             state.errors_count += 1;
             info!(
                 provider = self.inner.name(),
                 elapsed_ms, "metrics: complete() failed"
             );
+
+            #[cfg(feature = "otel")]
+            {
+                self.otel
+                    .errors_total
+                    .add(1, std::slice::from_ref(&provider_attr));
+            }
         }
 
         drop(state);
@@ -285,6 +481,7 @@ mod tests {
         assert_eq!(report.total_completion_tokens, 0);
         assert_eq!(report.total_tokens, 0);
         assert_eq!(report.errors_count, 0);
+        assert!(report.total_cost == 0.0);
         assert_eq!(report.provider_name, "test");
     }
 
@@ -399,5 +596,174 @@ mod tests {
         assert_eq!(report.call_count, 0);
         assert_eq!(report.total_tokens, 0);
         assert_eq!(report.errors_count, 0);
+        assert!(report.total_cost == 0.0);
+    }
+
+    // ========================================================================
+    // Cost tracking tests
+    // ========================================================================
+
+    #[tokio::test]
+    async fn cost_with_known_model() {
+        let provider = TestProvider::new(vec![Ok(ChatResponse {
+            content: "response".to_owned(),
+            model: "opus".to_owned(),
+            usage: Some(TokenUsage {
+                prompt_tokens: 1000,
+                completion_tokens: 500,
+                total_tokens: 1500,
+            }),
+            finish_reason: Some("stop".to_owned()),
+            warnings: None,
+            tool_calls: None,
+        })]);
+        let metered = MetricsProvider::new(Box::new(provider)).with_default_pricing();
+        let request = ChatRequest::new(vec![ChatMessage::user("hi")]);
+        metered.complete(&request).await.expect("call");
+
+        let report = metered.report();
+        // opus: 1000 prompt * 0.015/1000 + 500 completion * 0.075/1000
+        // = 0.015 + 0.0375 = 0.0525
+        assert!((report.total_cost - 0.0525).abs() < 1e-10);
+    }
+
+    #[tokio::test]
+    async fn cost_with_unknown_model() {
+        let provider = TestProvider::new(vec![Ok(ChatResponse {
+            content: "response".to_owned(),
+            model: "some-unknown-model".to_owned(),
+            usage: Some(TokenUsage {
+                prompt_tokens: 1000,
+                completion_tokens: 500,
+                total_tokens: 1500,
+            }),
+            finish_reason: Some("stop".to_owned()),
+            warnings: None,
+            tool_calls: None,
+        })]);
+        let metered = MetricsProvider::new(Box::new(provider)).with_default_pricing();
+        let request = ChatRequest::new(vec![ChatMessage::user("hi")]);
+        metered.complete(&request).await.expect("call");
+
+        let report = metered.report();
+        assert!(report.total_cost == 0.0);
+    }
+
+    #[tokio::test]
+    async fn cost_accumulates() {
+        let provider = TestProvider::new(vec![
+            Ok(ChatResponse {
+                content: "r1".to_owned(),
+                model: "opus".to_owned(),
+                usage: Some(TokenUsage {
+                    prompt_tokens: 1000,
+                    completion_tokens: 500,
+                    total_tokens: 1500,
+                }),
+                finish_reason: Some("stop".to_owned()),
+                warnings: None,
+                tool_calls: None,
+            }),
+            Ok(ChatResponse {
+                content: "r2".to_owned(),
+                model: "opus".to_owned(),
+                usage: Some(TokenUsage {
+                    prompt_tokens: 2000,
+                    completion_tokens: 1000,
+                    total_tokens: 3000,
+                }),
+                finish_reason: Some("stop".to_owned()),
+                warnings: None,
+                tool_calls: None,
+            }),
+        ]);
+        let metered = MetricsProvider::new(Box::new(provider)).with_default_pricing();
+        let request = ChatRequest::new(vec![ChatMessage::user("hi")]);
+        metered.complete(&request).await.expect("call 1");
+        metered.complete(&request).await.expect("call 2");
+
+        let report = metered.report();
+        // call1: 0.015 + 0.0375 = 0.0525
+        // call2: 0.030 + 0.075 = 0.105
+        // total: 0.1575
+        assert!((report.total_cost - 0.1575).abs() < 1e-10);
+    }
+
+    #[tokio::test]
+    async fn cost_without_pricing() {
+        let provider = TestProvider::new(vec![Ok(ChatResponse {
+            content: "response".to_owned(),
+            model: "opus".to_owned(),
+            usage: Some(TokenUsage {
+                prompt_tokens: 1000,
+                completion_tokens: 500,
+                total_tokens: 1500,
+            }),
+            finish_reason: Some("stop".to_owned()),
+            warnings: None,
+            tool_calls: None,
+        })]);
+        let metered = MetricsProvider::new(Box::new(provider));
+        let request = ChatRequest::new(vec![ChatMessage::user("hi")]);
+        metered.complete(&request).await.expect("call");
+
+        let report = metered.report();
+        assert!(report.total_cost == 0.0);
+    }
+
+    #[tokio::test]
+    async fn cost_with_estimated_tokens() {
+        let provider = TestProvider::new(vec![Ok(ChatResponse {
+            content: "abcdefghijklmnop".to_owned(), // 16 chars => 4 tokens
+            model: "opus".to_owned(),
+            usage: None,
+            finish_reason: Some("stop".to_owned()),
+            warnings: None,
+            tool_calls: None,
+        })]);
+        let metered = MetricsProvider::new(Box::new(provider)).with_default_pricing();
+        let request = ChatRequest::new(vec![ChatMessage::user("12345678")]); // 8 chars => 2 tokens
+        metered.complete(&request).await.expect("call");
+
+        let report = metered.report();
+        // 2 prompt tokens, 4 completion tokens via estimation
+        // 2 * 0.015/1000 + 4 * 0.075/1000 = 0.00003 + 0.0003 = 0.00033
+        assert!(report.total_cost > 0.0);
+        assert!((report.total_cost - 0.00033).abs() < 1e-10);
+    }
+
+    #[test]
+    fn default_pricing_populated() {
+        let table = default_pricing_table();
+        assert!(table.contains_key("opus"));
+        assert!(table.contains_key("sonnet"));
+        assert!(table.contains_key("haiku"));
+        assert!(table.contains_key("gpt-5.4"));
+        assert!(table.contains_key("gemini-2.5-pro"));
+        assert!(table.contains_key("gemini-2.5-flash"));
+        assert!(table.len() >= 7);
+    }
+
+    #[tokio::test]
+    async fn reset_zeroes_cost() {
+        let provider = TestProvider::new(vec![Ok(ChatResponse {
+            content: "response".to_owned(),
+            model: "opus".to_owned(),
+            usage: Some(TokenUsage {
+                prompt_tokens: 1000,
+                completion_tokens: 500,
+                total_tokens: 1500,
+            }),
+            finish_reason: Some("stop".to_owned()),
+            warnings: None,
+            tool_calls: None,
+        })]);
+        let metered = MetricsProvider::new(Box::new(provider)).with_default_pricing();
+        let request = ChatRequest::new(vec![ChatMessage::user("hi")]);
+        metered.complete(&request).await.expect("call");
+        assert!(metered.report().total_cost > 0.0);
+
+        metered.reset();
+        assert!(metered.report().total_cost == 0.0);
     }
 }

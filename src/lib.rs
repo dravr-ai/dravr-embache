@@ -151,6 +151,8 @@ pub mod types;
 pub mod agent;
 /// Auth readiness checking for CLI runners
 pub mod auth;
+/// Response caching decorator
+pub mod cache;
 /// Request/provider capability validation
 pub mod capability_guard;
 /// Claude Code CLI runner
@@ -229,6 +231,7 @@ pub mod copilot_headless_config;
 // Re-export the runner structs for ergonomic access
 pub use agent::{AgentExecutor, AgentResult, OnTurnCallback, TurnInfo};
 pub use auth::ProviderReadiness;
+pub use cache::{CacheConfig, CacheProvider, CacheStats};
 pub use capability_guard::validate_capabilities;
 pub use claude_code::ClaudeCodeRunner;
 pub use cli_common::CliRunnerBase;
@@ -250,7 +253,9 @@ pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
 pub use kiro_cli::KiroCliRunner;
 pub use mcp_tool_bridge::{McpToolDefinition, McpToolExecutor};
-pub use metrics::{MetricsProvider, MetricsReport};
+pub use metrics::{
+    default_pricing_table, MetricsProvider, MetricsReport, PricingTable, TokenPricing,
+};
 pub use opencode::OpenCodeRunner;
 pub use quality_gate::{QualityGateProvider, QualityPolicy};
 pub use structured_output::{request_structured_output, StructuredOutputRequest};
