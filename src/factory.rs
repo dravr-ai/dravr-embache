@@ -50,6 +50,29 @@ pub async fn create_runner(
     Ok(runner)
 }
 
+/// Create an `LlmProvider` instance for the given runner type with a pre-built config.
+///
+/// Unlike [`create_runner()`], this function does not perform binary discovery;
+/// it uses the provided `RunnerConfig` directly.
+pub async fn create_runner_with_config(
+    runner_type: CliRunnerType,
+    config: RunnerConfig,
+) -> Box<dyn LlmProvider> {
+    match runner_type {
+        CliRunnerType::ClaudeCode => Box::new(ClaudeCodeRunner::new(config)),
+        CliRunnerType::Copilot => Box::new(CopilotRunner::new(config).await),
+        CliRunnerType::CursorAgent => Box::new(CursorAgentRunner::new(config)),
+        CliRunnerType::OpenCode => Box::new(OpenCodeRunner::new(config)),
+        CliRunnerType::GeminiCli => Box::new(GeminiCliRunner::new(config)),
+        CliRunnerType::CodexCli => Box::new(CodexCliRunner::new(config)),
+        CliRunnerType::GooseCli => Box::new(GooseCliRunner::new(config)),
+        CliRunnerType::ClineCli => Box::new(ClineCliRunner::new(config)),
+        CliRunnerType::ContinueCli => Box::new(ContinueCliRunner::new(config)),
+        CliRunnerType::WarpCli => Box::new(WarpCliRunner::new(config)),
+        CliRunnerType::KiroCli => Box::new(KiroCliRunner::new(config)),
+    }
+}
+
 /// All provider types supported by embacle, in discovery priority order
 pub const ALL_PROVIDERS: &[CliRunnerType] = &[
     CliRunnerType::ClaudeCode,

@@ -208,6 +208,11 @@ pub mod tool_simulation;
 /// Warp terminal `oz` CLI runner
 pub mod warp_cli;
 
+// Config file module (behind feature flag)
+/// TOML-based declarative configuration file loading
+#[cfg(feature = "config-file")]
+pub mod config_file;
+
 // OpenAI API module (behind feature flag)
 /// OpenAI-compatible HTTP API client runner
 #[cfg(feature = "openai-api")]
@@ -236,7 +241,10 @@ pub use continue_cli::ContinueCliRunner;
 pub use copilot::{copilot_fallback_models, discover_copilot_models, CopilotRunner};
 pub use cursor_agent::CursorAgentRunner;
 pub use discovery::{discover_runner, resolve_binary};
-pub use factory::{create_runner, parse_runner_type, valid_provider_names, ALL_PROVIDERS};
+pub use factory::{
+    create_runner, create_runner_with_config, parse_runner_type, valid_provider_names,
+    ALL_PROVIDERS,
+};
 pub use fallback::{FallbackProvider, RetryConfig};
 pub use gemini_cli::GeminiCliRunner;
 pub use goose_cli::GooseCliRunner;
@@ -256,6 +264,13 @@ pub use tool_simulation::{
     execute_with_text_tools, format_tool_results_as_text, generate_tool_catalog,
     inject_tool_catalog, parse_tool_call_blocks, strip_tool_call_blocks, FunctionCall,
     FunctionDeclaration, FunctionResponse, TextToolHandler, TextToolResponse,
+};
+
+// Config file re-exports (behind feature flag)
+#[cfg(feature = "config-file")]
+pub use config_file::{
+    build_fallback_from_config, build_runner_config, load_config, load_config_from, resolve_alias,
+    DefaultsConfig, EmbacleConfig, FallbackConfig, ProviderConfig,
 };
 
 // OpenAI API re-exports (behind feature flag)
