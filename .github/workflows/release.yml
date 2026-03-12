@@ -265,18 +265,35 @@ jobs:
           body_path: CHANGELOG.md
           files: artifacts/*
 
-      - name: Update Homebrew formula
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ needs.version.outputs.version }}"
+  update-homebrew:
+    name: Update Homebrew
+    needs: [version, build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: dravr-ai/homebrew-tap
+          token: ${{ secrets.RELEASE_PAT }}
 
-          # Compute SHA256 for each platform
+      - name: Download artifacts for SHA computation
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: embacle-*
+          merge-multiple: true
+
+      - name: Update formula
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
           SHA_ARM=$(shasum -a 256 artifacts/embacle-v${VERSION}-aarch64-apple-darwin.tar.gz | awk '{print $1}')
           SHA_X86_MAC=$(shasum -a 256 artifacts/embacle-v${VERSION}-x86_64-apple-darwin.tar.gz | awk '{print $1}')
           SHA_LINUX=$(shasum -a 256 artifacts/embacle-v${VERSION}-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')
 
-          cat > /tmp/embacle.rb <<FORMULA
+          cat > Formula/embacle.rb <<FORMULA
           # typed: false
           # frozen_string_literal: true
 
@@ -314,11 +331,14 @@ jobs:
           FORMULA
 
           # Remove leading whitespace from heredoc
-          sed -i 's/^          //' /tmp/embacle.rb
+          sed -i 's/^          //' Formula/embacle.rb
 
-          # Push updated formula to homebrew-tap repo
-          gh api repos/dravr-ai/homebrew-tap/contents/Formula/embacle.rb \
-            --method PUT \
-            --field message="Update embacle to v${VERSION}" \
-            --field content="$(base64 -w0 /tmp/embacle.rb)" \
-            --field sha="$(gh api repos/dravr-ai/homebrew-tap/contents/Formula/embacle.rb --jq .sha)"
+      - name: Commit and push
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/embacle.rb
+          git commit -m "chore: bump embacle to v${VERSION}"
+          git push
