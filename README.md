@@ -5,7 +5,7 @@
 [![CI](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml/badge.svg)](https://github.com/dravr-ai/dravr-embacle/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE.md)
 
-Standalone Rust library that wraps 12 AI CLI tools and SDKs as pluggable LLM providers.
+Standalone Rust library that wraps 12 AI CLI tools and SDKs as pluggable LLM providers, with vision/image support.
 
 Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional headless mode communicates via the ACP (Agent Client Protocol) for SDK-managed tool calling.
 
@@ -61,7 +61,7 @@ docker pull ghcr.io/dravr-ai/embacle:latest
 
 ```toml
 [dependencies]
-embacle = "0.10"
+embacle = "0.12"
 ```
 
 ## Quick Start
@@ -94,7 +94,7 @@ Enable the `openai-api` feature for HTTP-based communication with any OpenAI-com
 
 ```toml
 [dependencies]
-embacle = { version = "0.10", features = ["openai-api"] }
+embacle = { version = "0.12", features = ["openai-api"] }
 ```
 
 ```rust
@@ -132,7 +132,7 @@ Enable the `copilot-headless` feature for ACP-based communication with SDK-manag
 
 ```toml
 [dependencies]
-embacle = { version = "0.10", features = ["copilot-headless"] }
+embacle = { version = "0.12", features = ["copilot-headless"] }
 ```
 
 ```rust
@@ -162,6 +162,50 @@ The headless runner spawns `copilot --acp` per request and communicates via NDJS
 | `COPILOT_HEADLESS_MODEL` | `claude-opus-4.6-fast` | Default model for completions |
 | `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
 
+## Vision / Image Support
+
+Embacle supports sending images alongside text prompts via the `ImagePart` type. Images are base64-encoded and tagged with a MIME type (PNG, JPEG, WebP, GIF).
+
+### Which providers support vision?
+
+| Provider | Vision | Notes |
+|----------|--------|-------|
+| Copilot Headless (ACP) | Yes | Images sent as ACP `image` content blocks |
+| OpenAI API | Yes | Images sent as `image_url` parts with `data:` URIs |
+| All CLI runners | No | CLI tools build text-only prompts via string concatenation |
+
+### Library usage
+
+```rust
+use embacle::types::{ChatMessage, ChatRequest, ImagePart};
+
+let image = ImagePart::new(base64_data, "image/png")?;
+let request = ChatRequest::new(vec![
+    ChatMessage::user_with_images("What do you see?", vec![image]),
+]);
+```
+
+### Server usage (OpenAI multipart content)
+
+Send images via the standard OpenAI multipart content format:
+
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "copilot_headless",
+    "messages": [{
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "What do you see in this image?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBOR..."}}
+      ]
+    }]
+  }'
+```
+
+Plain string messages continue to work unchanged. Providers without vision capability will ignore image content (or reject it in strict mode via the capability guard).
+
 ## MCP Server (`embacle-mcp`)
 
 A library and standalone binary that exposes embacle runners via the [Model Context Protocol](https://modelcontextprotocol.io/). Connect any MCP-compatible client (Claude Desktop, editors, custom agents) to use all embacle providers.
@@ -181,7 +225,7 @@ embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
 | Tool | Description |
 |------|-------------|
 | `get_provider` | Get active LLM provider and list available providers |
-| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`, `kiro_cli`, `kilo_cli`) |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `copilot_headless`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`, `kiro_cli`, `kilo_cli`) |
 | `get_model` | Get current model and list available models for the active provider |
 | `set_model` | Set the model for subsequent requests (pass null to reset to default) |
 | `get_multiplex_provider` | Get providers configured for multiplex dispatch |
