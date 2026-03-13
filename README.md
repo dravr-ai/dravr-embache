@@ -184,11 +184,14 @@ Embacle supports sending images alongside text prompts via the `ImagePart` type.
 
 ### Which providers support vision?
 
-| Provider | Vision | Notes |
-|----------|--------|-------|
-| Copilot Headless (ACP) | Yes | Images sent as ACP `image` content blocks |
-| OpenAI API | Yes | Images sent as `image_url` parts with `data:` URIs |
-| All CLI runners | No | CLI tools build text-only prompts via string concatenation |
+| Provider | Vision | How |
+|----------|--------|-----|
+| Copilot Headless (ACP) | Native | Images sent as ACP `image` content blocks |
+| OpenAI API | Native | Images sent as `image_url` parts with `data:` URIs |
+| C FFI | Native | Images forwarded to copilot headless via `image_url` content |
+| All 12 CLI runners | Tempfile | Images decoded to temp files, file paths injected into prompt |
+
+CLI runners materialize base64 images to a temp directory and append `[Attached images]` with file paths to the user message. The temp directory is kept alive until the subprocess finishes.
 
 ### Library usage
 
@@ -220,7 +223,7 @@ curl http://localhost:3000/v1/chat/completions \
   }'
 ```
 
-Plain string messages continue to work unchanged. Providers without vision capability will ignore image content (or reject it in strict mode via the capability guard).
+Plain string messages continue to work unchanged. All providers accept images — native providers send them directly, CLI runners materialize them to temp files.
 
 ## MCP Server (`embacle-mcp`)
 
