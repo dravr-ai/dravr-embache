@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.0] — 2026-03-13
+
+### Added
+
+- feat: add C FFI static library for Swift integration
+- feat: materialize images to temp files for all 12 CLI runners
+
+
+
 ## [0.12.0] — 2026-03-13
 
 ### Added
