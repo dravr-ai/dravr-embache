@@ -9,6 +9,46 @@ Standalone Rust library that wraps 12 AI CLI tools and SDKs as pluggable LLM pro
 
 Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional headless mode communicates via the ACP (Agent Client Protocol) for SDK-managed tool calling.
 
+## Install
+
+### Homebrew (macOS / Linux) — recommended
+
+```bash
+brew tap dravr-ai/tap
+brew install embacle
+```
+
+This installs two binaries:
+
+- **`embacle-server`** — OpenAI-compatible REST API + MCP server (start with `embacle-server --provider copilot`)
+- **`embacle-mcp`** — standalone MCP server for editor integration
+
+Once installed, start the server and send requests with any OpenAI-compatible client:
+
+```bash
+embacle-server --provider copilot --port 3000
+```
+
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "copilot", "messages": [{"role": "user", "content": "hello"}]}'
+```
+
+### Docker
+
+```bash
+docker pull ghcr.io/dravr-ai/embacle:latest
+docker run -p 3000:3000 ghcr.io/dravr-ai/embacle --provider copilot
+```
+
+### Cargo (library)
+
+```toml
+[dependencies]
+embacle = "0.12"
+```
+
 ## Supported Runners
 
 ### CLI Runners (subprocess-based)
@@ -39,30 +79,6 @@ Instead of integrating with LLM APIs directly (which require API keys, SDKs, and
 | Runner | Feature Flag | Features |
 |--------|-------------|----------|
 | GitHub Copilot Headless | `copilot-headless` | NDJSON/JSON-RPC via `copilot --acp`, SDK-managed tool calling, streaming |
-
-## Install
-
-### Homebrew (macOS / Linux)
-
-```bash
-brew tap dravr-ai/tap
-brew install embacle
-```
-
-This installs both `embacle-server` (OpenAI API + MCP) and `embacle-mcp` (standalone MCP).
-
-### Docker
-
-```bash
-docker pull ghcr.io/dravr-ai/embacle:latest
-```
-
-### Cargo (library)
-
-```toml
-[dependencies]
-embacle = "0.12"
-```
 
 ## Quick Start
 
