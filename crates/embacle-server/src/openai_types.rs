@@ -138,14 +138,14 @@ pub enum ModelField {
 
 /// Message content that can be either a plain string or an array of content parts
 ///
-/// Per the OpenAI API spec, the `content` field of a message can be either a simple
-/// string or an array of typed content parts (text, image_url, etc.).
+/// Per the `OpenAI` API spec, the `content` field of a message can be either a simple
+/// string or an array of typed content parts (text, `image_url`, etc.).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum MessageContent {
     /// Plain text content
     Text(String),
-    /// Array of typed content parts (text, image_url, etc.)
+    /// Array of typed content parts (text, `image_url`, etc.)
     Parts(Vec<ContentPart>),
 }
 

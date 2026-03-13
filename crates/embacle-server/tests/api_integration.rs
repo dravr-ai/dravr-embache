@@ -114,7 +114,7 @@ async fn health_providers_contains_all_twelve() {
     let json: serde_json::Value = serde_json::from_slice(&bytes).expect("parse json");
 
     let providers = json["providers"].as_object().expect("providers is object");
-    assert_eq!(providers.len(), 12, "expected 12 providers");
+    assert_eq!(providers.len(), 13, "expected 13 providers");
 
     // Each provider should have a status string
     for (name, value) in providers {

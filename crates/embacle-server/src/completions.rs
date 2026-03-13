@@ -448,11 +448,8 @@ fn build_response_message(
 }
 
 /// Extract text content from a `MessageContent`, returning an empty string for None
-fn content_as_text(content: &Option<MessageContent>) -> String {
-    content
-        .as_ref()
-        .map(MessageContent::as_text)
-        .unwrap_or_default()
+fn content_as_text(content: Option<&MessageContent>) -> String {
+    content.map(MessageContent::as_text).unwrap_or_default()
 }
 
 /// Parse a `data:` URI into an `ImagePart`
@@ -465,10 +462,9 @@ fn parse_data_uri(url: &str) -> Option<embacle::ImagePart> {
 }
 
 /// Extract images from a `MessageContent::Parts` variant
-fn extract_images(content: &Option<MessageContent>) -> Option<Vec<embacle::ImagePart>> {
-    let parts = match content {
-        Some(MessageContent::Parts(parts)) => parts,
-        _ => return None,
+fn extract_images(content: Option<&MessageContent>) -> Option<Vec<embacle::ImagePart>> {
+    let Some(MessageContent::Parts(parts)) = content else {
+        return None;
     };
 
     let images: Vec<embacle::ImagePart> = parts
@@ -501,12 +497,12 @@ fn convert_messages(messages: &[ChatCompletionMessage]) -> Vec<ChatMessage> {
         let m = &messages[i];
         match m.role.as_str() {
             "system" => {
-                result.push(ChatMessage::system(content_as_text(&m.content)));
+                result.push(ChatMessage::system(content_as_text(m.content.as_ref())));
                 i += 1;
             }
             "user" => {
-                let text = content_as_text(&m.content);
-                let images = extract_images(&m.content);
+                let text = content_as_text(m.content.as_ref());
+                let images = extract_images(m.content.as_ref());
                 if let Some(imgs) = images {
                     result.push(ChatMessage::user_with_images(text, imgs));
                 } else {
@@ -517,7 +513,7 @@ fn convert_messages(messages: &[ChatCompletionMessage]) -> Vec<ChatMessage> {
             "assistant" => {
                 if let Some(ref tool_calls) = m.tool_calls {
                     // Reconstruct <tool_call> XML blocks from stored tool calls
-                    let mut text = content_as_text(&m.content);
+                    let mut text = content_as_text(m.content.as_ref());
                     for tc in tool_calls {
                         text.push_str("\n<tool_call>\n");
                         let payload = serde_json::json!({
@@ -532,7 +528,7 @@ fn convert_messages(messages: &[ChatCompletionMessage]) -> Vec<ChatMessage> {
                     }
                     result.push(ChatMessage::assistant(text));
                 } else {
-                    result.push(ChatMessage::assistant(content_as_text(&m.content)));
+                    result.push(ChatMessage::assistant(content_as_text(m.content.as_ref())));
                 }
                 i += 1;
             }
@@ -542,12 +538,12 @@ fn convert_messages(messages: &[ChatCompletionMessage]) -> Vec<ChatMessage> {
                 while i < messages.len() && messages[i].role == "tool" {
                     let tool_msg = &messages[i];
                     let name = tool_msg.name.as_deref().unwrap_or("unknown");
-                    let content_text = content_as_text(&tool_msg.content);
+                    let content_text = content_as_text(tool_msg.content.as_ref());
                     let response_value: serde_json::Value = if content_text.is_empty() {
                         serde_json::Value::Null
                     } else {
                         serde_json::from_str(&content_text)
-                            .unwrap_or_else(|_| serde_json::Value::String(content_text))
+                            .unwrap_or(serde_json::Value::String(content_text))
                     };
                     tool_responses.push(embacle::FunctionResponse {
                         name: name.to_owned(),
@@ -560,7 +556,7 @@ fn convert_messages(messages: &[ChatCompletionMessage]) -> Vec<ChatMessage> {
             }
             other => {
                 warn!(role = other, "Unknown message role, mapping to user");
-                result.push(ChatMessage::user(content_as_text(&m.content)));
+                result.push(ChatMessage::user(content_as_text(m.content.as_ref())));
                 i += 1;
             }
         }
@@ -879,13 +875,13 @@ mod tests {
 
     #[test]
     fn content_as_text_none() {
-        assert_eq!(content_as_text(&None), "");
+        assert_eq!(content_as_text(None), "");
     }
 
     #[test]
     fn content_as_text_plain() {
-        let content = Some(MessageContent::Text("hello".to_owned()));
-        assert_eq!(content_as_text(&content), "hello");
+        let content = MessageContent::Text("hello".to_owned());
+        assert_eq!(content_as_text(Some(&content)), "hello");
     }
 
     #[test]
