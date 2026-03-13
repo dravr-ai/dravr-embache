@@ -9,6 +9,22 @@ Standalone Rust library that wraps 12 AI CLI tools and SDKs as pluggable LLM pro
 
 Instead of integrating with LLM APIs directly (which require API keys, SDKs, and managing auth), **Embacle** delegates to CLI tools that users already have installed and authenticated — getting model upgrades, auth management, and protocol handling for free. For GitHub Copilot, an optional headless mode communicates via the ACP (Agent Client Protocol) for SDK-managed tool calling.
 
+## Table of Contents
+
+- [Install](#install)
+- [Supported Runners](#supported-runners)
+- [Quick Start](#quick-start)
+- [REST API Server](#rest-api-server-embacle-server)
+- [MCP Server](#mcp-server-embacle-mcp)
+- [OpenAI API](#openai-api-feature-flag)
+- [Copilot Headless](#copilot-headless-feature-flag)
+- [Vision / Image Support](#vision--image-support)
+- [Docker](#docker)
+- [C FFI Static Library](#c-ffi-static-library-swift--c-integration)
+- [Architecture](#architecture)
+- [Tested With](#tested-with)
+- [License](#license)
+
 ## Install
 
 ### Homebrew (macOS / Linux) — recommended
@@ -104,168 +120,6 @@ async fn main() -> Result<(), embacle::types::RunnerError> {
 }
 ```
 
-### OpenAI API (feature flag)
-
-Enable the `openai-api` feature for HTTP-based communication with any OpenAI-compatible endpoint:
-
-```toml
-[dependencies]
-embacle = { version = "0.13", features = ["openai-api"] }
-```
-
-```rust
-use embacle::{OpenAiApiConfig, OpenAiApiRunner};
-use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
-
-#[tokio::main]
-async fn main() -> Result<(), embacle::types::RunnerError> {
-    // Reads OPENAI_API_BASE_URL, OPENAI_API_KEY, OPENAI_API_MODEL from env
-    let config = OpenAiApiConfig::from_env();
-    let runner = OpenAiApiRunner::new(config).await;
-
-    let request = ChatRequest::new(vec![
-        ChatMessage::user("What is the capital of France?"),
-    ]);
-
-    let response = runner.complete(&request).await?;
-    println!("{}", response.content);
-    Ok(())
-}
-```
-
-Works with any OpenAI-compatible endpoint — OpenAI, Groq, Google Gemini, Ollama, vLLM, and more. To inject a shared HTTP client (e.g. from a connection pool), use `OpenAiApiRunner::with_client(config, client)`.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_BASE_URL` | `https://api.openai.com/v1` | API base URL |
-| `OPENAI_API_KEY` | *(none)* | Bearer token for authentication |
-| `OPENAI_API_MODEL` | `gpt-5.4` | Default model for completions |
-| `OPENAI_API_TIMEOUT_SECS` | `300` | HTTP request timeout |
-
-### Copilot Headless (feature flag)
-
-Enable the `copilot-headless` feature for ACP-based communication with SDK-managed tool calling:
-
-```toml
-[dependencies]
-embacle = { version = "0.13", features = ["copilot-headless"] }
-```
-
-```rust
-use embacle::{CopilotHeadlessRunner, CopilotHeadlessConfig};
-use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
-
-#[tokio::main]
-async fn main() -> Result<(), embacle::types::RunnerError> {
-    // Reads COPILOT_HEADLESS_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
-    let runner = CopilotHeadlessRunner::from_env().await;
-
-    let request = ChatRequest::new(vec![
-        ChatMessage::user("Explain Rust ownership"),
-    ]);
-
-    let response = runner.complete(&request).await?;
-    println!("{}", response.content);
-    Ok(())
-}
-```
-
-The headless runner spawns `copilot --acp` per request and communicates via NDJSON-framed JSON-RPC. Configuration via environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `COPILOT_CLI_PATH` | auto-detect | Override path to copilot binary |
-| `COPILOT_HEADLESS_MODEL` | `claude-opus-4.6-fast` | Default model for completions |
-| `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
-
-## Vision / Image Support
-
-Embacle supports sending images alongside text prompts via the `ImagePart` type. Images are base64-encoded and tagged with a MIME type (PNG, JPEG, WebP, GIF).
-
-### Which providers support vision?
-
-| Provider | Vision | How |
-|----------|--------|-----|
-| Copilot Headless (ACP) | Native | Images sent as ACP `image` content blocks |
-| OpenAI API | Native | Images sent as `image_url` parts with `data:` URIs |
-| C FFI | Native | Images forwarded to copilot headless via `image_url` content |
-| All 12 CLI runners | Tempfile | Images decoded to temp files, file paths injected into prompt |
-
-CLI runners materialize base64 images to a temp directory and append `[Attached images]` with file paths to the user message. The temp directory is kept alive until the subprocess finishes.
-
-### Library usage
-
-```rust
-use embacle::types::{ChatMessage, ChatRequest, ImagePart};
-
-let image = ImagePart::new(base64_data, "image/png")?;
-let request = ChatRequest::new(vec![
-    ChatMessage::user_with_images("What do you see?", vec![image]),
-]);
-```
-
-### Server usage (OpenAI multipart content)
-
-Send images via the standard OpenAI multipart content format:
-
-```bash
-curl http://localhost:3000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "copilot_headless",
-    "messages": [{
-      "role": "user",
-      "content": [
-        {"type": "text", "text": "What do you see in this image?"},
-        {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBOR..."}}
-      ]
-    }]
-  }'
-```
-
-Plain string messages continue to work unchanged. All providers accept images — native providers send them directly, CLI runners materialize them to temp files.
-
-## MCP Server (`embacle-mcp`)
-
-A library and standalone binary that exposes embacle runners via the [Model Context Protocol](https://modelcontextprotocol.io/). Connect any MCP-compatible client (Claude Desktop, editors, custom agents) to use all embacle providers.
-
-### Usage
-
-```bash
-# Stdio transport (default — for editor/client integration)
-embacle-mcp --provider copilot
-
-# HTTP transport (for network-accessible deployments)
-embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
-```
-
-### MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `get_provider` | Get active LLM provider and list available providers |
-| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `copilot_headless`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`, `kiro_cli`, `kilo_cli`) |
-| `get_model` | Get current model and list available models for the active provider |
-| `set_model` | Set the model for subsequent requests (pass null to reset to default) |
-| `get_multiplex_provider` | Get providers configured for multiplex dispatch |
-| `set_multiplex_provider` | Configure providers for fan-out mode |
-| `prompt` | Send chat messages to the active provider, or multiplex to all configured providers |
-
-### Client Configuration
-
-Add to your MCP client config (e.g. Claude Desktop `claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "embacle": {
-      "command": "embacle-mcp",
-      "args": ["--provider", "copilot"]
-    }
-  }
-}
-```
-
 ## REST API Server (`embacle-server`)
 
 A unified OpenAI-compatible HTTP server with built-in MCP support that proxies requests to embacle runners. Any client that speaks the OpenAI chat completions API or MCP protocol can use it without modification. Supports `--transport stdio` for MCP-only mode (editor integration).
@@ -357,6 +211,168 @@ Optional. Set `EMBACLE_API_KEY` to require bearer token auth on all endpoints. W
 EMBACLE_API_KEY=my-secret embacle-server
 curl http://localhost:3000/v1/models -H "Authorization: Bearer my-secret"
 ```
+
+## MCP Server (`embacle-mcp`)
+
+A library and standalone binary that exposes embacle runners via the [Model Context Protocol](https://modelcontextprotocol.io/). Connect any MCP-compatible client (Claude Desktop, editors, custom agents) to use all embacle providers.
+
+### Usage
+
+```bash
+# Stdio transport (default — for editor/client integration)
+embacle-mcp --provider copilot
+
+# HTTP transport (for network-accessible deployments)
+embacle-mcp --transport http --host 0.0.0.0 --port 3000 --provider claude_code
+```
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_provider` | Get active LLM provider and list available providers |
+| `set_provider` | Switch the active provider (`claude_code`, `copilot`, `copilot_headless`, `cursor_agent`, `opencode`, `gemini_cli`, `codex_cli`, `goose_cli`, `cline_cli`, `continue_cli`, `warp_cli`, `kiro_cli`, `kilo_cli`) |
+| `get_model` | Get current model and list available models for the active provider |
+| `set_model` | Set the model for subsequent requests (pass null to reset to default) |
+| `get_multiplex_provider` | Get providers configured for multiplex dispatch |
+| `set_multiplex_provider` | Configure providers for fan-out mode |
+| `prompt` | Send chat messages to the active provider, or multiplex to all configured providers |
+
+### Client Configuration
+
+Add to your MCP client config (e.g. Claude Desktop `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "embacle": {
+      "command": "embacle-mcp",
+      "args": ["--provider", "copilot"]
+    }
+  }
+}
+```
+
+## OpenAI API (feature flag)
+
+Enable the `openai-api` feature for HTTP-based communication with any OpenAI-compatible endpoint:
+
+```toml
+[dependencies]
+embacle = { version = "0.13", features = ["openai-api"] }
+```
+
+```rust
+use embacle::{OpenAiApiConfig, OpenAiApiRunner};
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
+
+#[tokio::main]
+async fn main() -> Result<(), embacle::types::RunnerError> {
+    // Reads OPENAI_API_BASE_URL, OPENAI_API_KEY, OPENAI_API_MODEL from env
+    let config = OpenAiApiConfig::from_env();
+    let runner = OpenAiApiRunner::new(config).await;
+
+    let request = ChatRequest::new(vec![
+        ChatMessage::user("What is the capital of France?"),
+    ]);
+
+    let response = runner.complete(&request).await?;
+    println!("{}", response.content);
+    Ok(())
+}
+```
+
+Works with any OpenAI-compatible endpoint — OpenAI, Groq, Google Gemini, Ollama, vLLM, and more. To inject a shared HTTP client (e.g. from a connection pool), use `OpenAiApiRunner::with_client(config, client)`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_BASE_URL` | `https://api.openai.com/v1` | API base URL |
+| `OPENAI_API_KEY` | *(none)* | Bearer token for authentication |
+| `OPENAI_API_MODEL` | `gpt-5.4` | Default model for completions |
+| `OPENAI_API_TIMEOUT_SECS` | `300` | HTTP request timeout |
+
+## Copilot Headless (feature flag)
+
+Enable the `copilot-headless` feature for ACP-based communication with SDK-managed tool calling:
+
+```toml
+[dependencies]
+embacle = { version = "0.13", features = ["copilot-headless"] }
+```
+
+```rust
+use embacle::{CopilotHeadlessRunner, CopilotHeadlessConfig};
+use embacle::types::{ChatMessage, ChatRequest, LlmProvider};
+
+#[tokio::main]
+async fn main() -> Result<(), embacle::types::RunnerError> {
+    // Reads COPILOT_HEADLESS_MODEL, COPILOT_GITHUB_TOKEN, etc. from env
+    let runner = CopilotHeadlessRunner::from_env().await;
+
+    let request = ChatRequest::new(vec![
+        ChatMessage::user("Explain Rust ownership"),
+    ]);
+
+    let response = runner.complete(&request).await?;
+    println!("{}", response.content);
+    Ok(())
+}
+```
+
+The headless runner spawns `copilot --acp` per request and communicates via NDJSON-framed JSON-RPC. Configuration via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COPILOT_CLI_PATH` | auto-detect | Override path to copilot binary |
+| `COPILOT_HEADLESS_MODEL` | `claude-opus-4.6-fast` | Default model for completions |
+| `COPILOT_GITHUB_TOKEN` | stored OAuth | GitHub auth token (falls back to `GH_TOKEN`, `GITHUB_TOKEN`) |
+
+## Vision / Image Support
+
+Embacle supports sending images alongside text prompts via the `ImagePart` type. Images are base64-encoded and tagged with a MIME type (PNG, JPEG, WebP, GIF).
+
+### Which providers support vision?
+
+| Provider | Vision | How |
+|----------|--------|-----|
+| Copilot Headless (ACP) | Native | Images sent as ACP `image` content blocks |
+| OpenAI API | Native | Images sent as `image_url` parts with `data:` URIs |
+| C FFI | Native | Images forwarded to copilot headless via `image_url` content |
+| All 12 CLI runners | Tempfile | Images decoded to temp files, file paths injected into prompt |
+
+CLI runners materialize base64 images to a temp directory and append `[Attached images]` with file paths to the user message. The temp directory is kept alive until the subprocess finishes.
+
+### Library usage
+
+```rust
+use embacle::types::{ChatMessage, ChatRequest, ImagePart};
+
+let image = ImagePart::new(base64_data, "image/png")?;
+let request = ChatRequest::new(vec![
+    ChatMessage::user_with_images("What do you see?", vec![image]),
+]);
+```
+
+### Server usage (OpenAI multipart content)
+
+Send images via the standard OpenAI multipart content format:
+
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "copilot_headless",
+    "messages": [{
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "What do you see in this image?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,iVBOR..."}}
+      ]
+    }]
+  }'
+```
+
+Plain string messages continue to work unchanged. All providers accept images — native providers send them directly, CLI runners materialize them to temp files.
 
 ## Docker
 
