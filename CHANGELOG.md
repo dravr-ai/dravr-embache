@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.4] — 2026-03-18
+
+### Added
+
+- feat: make ACP session and prompt timeouts configurable via env vars
+
+
+
 ## [0.13.3] — 2026-03-18
 
 
