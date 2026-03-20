@@ -199,6 +199,8 @@ pub fn generate_tool_catalog(declarations: &[FunctionDeclaration]) -> String {
         "Rules:\n\
          - Output ONLY <tool_call> blocks. No markdown, no code fences, no commentary.\n\
          - You may output multiple <tool_call> blocks if multiple functions apply.\n\
+         - ONLY call functions listed under \"Registered functions\" below. \
+         Do NOT call any other tools (Glob, Grep, Read, Bash, Edit, Write, etc.) — they do not exist in this environment.\n\
          - After you receive <tool_result> data, use it to answer the original question.\n\n",
     );
 
